@@ -18,6 +18,7 @@ ENV/
 # Data files
 *.mhtml
 *.csv
+*_files/
 
 # Output files (keep only in example/)
 enriched_authors.json

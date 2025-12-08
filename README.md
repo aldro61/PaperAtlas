@@ -21,6 +21,24 @@ This tool helps you navigate large academic conferences by:
 - [Claude CLI](https://github.com/anthropics/claude-code) installed and configured with your API key
 - A Scholar Inbox account with conference papers scored (scholar-inbox.com)
 
+## Installation
+
+1. Clone this repository:
+```bash
+git clone https://github.com/aldro61/PaperAtlas.git
+cd PaperAtlas
+```
+
+2. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Verify Claude CLI is configured:
+```bash
+claude --version
+```
+
 ## Initial Setup
 
 ### 1. Download Your Conference Data
@@ -165,6 +183,8 @@ python generate_website.py
 
 ```
 PaperAtlas/
+├── README.md                      # This file
+├── requirements.txt               # Python dependencies
 ├── scrape_scholar_inbox.py        # Extract data from MHTML
 ├── enrich_papers.py               # AI-powered paper analysis
 ├── enrich_authors.py              # Author institutional lookup
