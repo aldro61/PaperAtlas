@@ -1,4 +1,6 @@
-# Conference Helper
+![PaperAtlas Banner](banner.png)
+
+# PaperAtlas
 
 A pipeline for generating a personalized conference summary website with AI-powered paper analysis, author enrichment, and research synthesis.
 
@@ -145,7 +147,7 @@ python generate_website.py
 ## File Structure
 
 ```
-conference-helper/
+PaperAtlas/
 ├── scrape_neurips.py              # Extract data from MHTML
 ├── enrich_papers.py               # AI-powered paper analysis
 ├── enrich_authors.py              # Author institutional lookup

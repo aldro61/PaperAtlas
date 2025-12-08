@@ -229,7 +229,7 @@ def synthesize_conference_summary(enriched_papers_file, output_file):
     print(f"References {len(enriched)} papers with correct tooltips")
 
 if __name__ == "__main__":
-    enriched_papers_file = "/Users/alexandre.drouin/dev/git/conference-helper/enriched_papers.json"
-    output_file = "/Users/alexandre.drouin/dev/git/conference-helper/conference_synthesis.md"
+    enriched_papers_file = "enriched_papers.json"
+    output_file = "conference_synthesis.md"
 
     synthesize_conference_summary(enriched_papers_file, output_file)

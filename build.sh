@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Conference Helper - Build Script
+# PaperAtlas - Build Script
 # Runs all pipeline steps to generate index.html
 # Prerequisites: MHTML file from Scholar Inbox must exist
 
 set -e  # Exit on any error
 
 echo "=========================================="
-echo "Conference Helper - Build Pipeline"
+echo "PaperAtlas - Build Pipeline"
 echo "=========================================="
 echo ""
 

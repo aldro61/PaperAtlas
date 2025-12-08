@@ -340,8 +340,8 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
         print(f"   {author['highly_relevant_count']} highly relevant papers (≥85), {author['paper_count']} total, avg: {author['avg_score']}")
 
 if __name__ == "__main__":
-    csv_file = "/Users/alexandre.drouin/dev/git/conference-helper/neurips2025_positive_scores.csv"
-    output_file = "/Users/alexandre.drouin/dev/git/conference-helper/enriched_authors.json"
+    csv_file = "neurips2025_positive_scores.csv"
+    output_file = "enriched_authors.json"
 
     # Enrich all authors with at least 1 highly relevant paper (score >= 85)
     # Running 15 parallel workers (reduced from 30 since we're now fetching pages)

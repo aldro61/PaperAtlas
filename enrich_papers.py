@@ -423,8 +423,8 @@ def enrich_papers(csv_file, output_file, max_workers=50, dry_run=False):
 if __name__ == "__main__":
     import sys
 
-    csv_file = "/Users/alexandre.drouin/dev/git/conference-helper/neurips2025_positive_scores.csv"
-    output_file = "/Users/alexandre.drouin/dev/git/conference-helper/enriched_papers.json"
+    csv_file = "neurips2025_positive_scores.csv"
+    output_file = "enriched_papers.json"
 
     # Check for dry-run mode
     dry_run = '--dry-run' in sys.argv or '-d' in sys.argv
@@ -435,7 +435,7 @@ if __name__ == "__main__":
         print("=" * 80)
         print("Will process only the first 10 papers to test the enrichment process.")
         print("Run without --dry-run flag to process all 370 papers.\n")
-        output_file = "/Users/alexandre.drouin/dev/git/conference-helper/enriched_papers_dry_run.json"
+        output_file = "enriched_papers_dry_run.json"
 
     # Enrich papers with 50 parallel workers for maximum speed
     # Dry run: ~2-3 minutes for 10 papers

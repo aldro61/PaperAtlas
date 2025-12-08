@@ -1684,9 +1684,9 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     print(f"Open it in your browser to view your papers!")
 
 if __name__ == "__main__":
-    csv_file = "/Users/alexandre.drouin/dev/git/conference-helper/neurips2025_positive_scores.csv"
-    output_file = "/Users/alexandre.drouin/dev/git/conference-helper/index.html"
-    enriched_authors_file = "/Users/alexandre.drouin/dev/git/conference-helper/enriched_authors.json"
-    enriched_papers_file = "/Users/alexandre.drouin/dev/git/conference-helper/enriched_papers.json"
+    csv_file = "neurips2025_positive_scores.csv"
+    output_file = "index.html"
+    enriched_authors_file = "enriched_authors.json"
+    enriched_papers_file = "enriched_papers.json"
 
     generate_website(csv_file, output_file, enriched_authors_file, enriched_papers_file)
