@@ -173,6 +173,7 @@ PaperAtlas/
 ├── build.sh                       # One-command pipeline runner
 ├── banner.png                     # Repository banner image
 ├── example/                       # Sample outputs from NeurIPS 2025
+│   ├── papers.csv                 #   Example extracted papers
 │   ├── enriched_authors.json      #   Example enriched authors
 │   ├── enriched_papers.json       #   Example enriched papers
 │   ├── conference_synthesis.html  #   Example synthesis
