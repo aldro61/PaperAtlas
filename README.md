@@ -6,6 +6,16 @@ A pipeline for generating a personalized conference summary website with AI-powe
 
 > **Note**: This is a quick project I hacked together to understand the landscape of papers and authors that fit my interests at NeurIPS 2025. I am not actively maintaining it but would be very happy to receive pull requests if someone wants to take this further. The `example/` directory contains sample outputs from my NeurIPS 2025 analysis.
 
+## 🎯 Wanted Features
+
+If you're interested in contributing, here are some features that would greatly improve PaperAtlas:
+
+1. **Direct Scholar Inbox Integration**: Currently, users must manually download and save the MHTML file from Scholar Inbox. It would be much better to directly pull papers via the Scholar Inbox API or web scraping, eliminating the manual download step.
+
+2. **LLM-Agnostic Enrichment**: The current implementation relies on Claude Code CLI for paper enrichment and synthesis. Porting these scripts to use standard LLM APIs (OpenAI, Anthropic, etc.) with tool calling for web search and PDF reading would make the pipeline more flexible and accessible to users who prefer different LLM providers.
+
+Pull requests are welcome! Feel free to open an issue to discuss any feature ideas before implementing.
+
 ## Overview
 
 This tool helps you navigate large academic conferences by:
