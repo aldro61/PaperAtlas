@@ -19,7 +19,7 @@ def generate_categories(papers):
         for i, paper in enumerate(papers)
     ])
 
-    prompt = f"""Analyze these {len(papers)} NeurIPS 2025 paper titles and create high-level research categories that would effectively group them.
+    prompt = f"""Analyze these {len(papers)} paper titles and create high-level research categories that would effectively group them.
 
 Paper titles:
 
@@ -84,28 +84,28 @@ def enrich_single_paper(paper, categories, index, total):
 
     if not pdf_url:
         print(f"  ⚠ No PDF URL in data - will search for paper")
-        prompt = f"""Find and read this NeurIPS 2025 paper, then extract key insights.
+        prompt = f"""Find and read this research paper, then extract key insights.
 
 Paper Title: "{title}"
-Relevance Score: {score} (higher = more aligned with agent systems, benchmarking, and tool use)
+Relevance Score: {score}
 
 Available Categories: {categories_str}
 
 Please:
-1. Search the web for "{title} NeurIPS 2025 PDF" to find the paper (try Google Scholar, ArXiv, NeurIPS proceedings, author's page, etc.)
+1. Search the web for "{title} PDF" to find the paper (try Google Scholar, ArXiv, conference proceedings, author's page, etc.)
 2. Once you find it, read the paper"""
     else:
-        prompt = f"""Read this NeurIPS 2025 paper and extract key insights.
+        prompt = f"""Read this research paper and extract key insights.
 
 Paper Title: "{title}"
 Paper URL: {pdf_url}
-Relevance Score: {score} (higher = more aligned with agent systems, benchmarking, and tool use)
+Relevance Score: {score}
 
 Available Categories: {categories_str}
 
 Please:
 1. Try to fetch and read the paper from the URL above
-2. If the PDF link doesn't work or returns an error, search the web for "{title} NeurIPS 2025 PDF" to find an alternative link (Google Scholar, ArXiv, author's page, etc.) and read it from there"""
+2. If the PDF link doesn't work or returns an error, search the web for "{title} PDF" to find an alternative link (Google Scholar, ArXiv, author's page, etc.) and read it from there"""
 
     prompt += f"""
 3. Extract the key findings: What is new? What is important? What does this paper bring to the field?
@@ -423,7 +423,7 @@ def enrich_papers(csv_file, output_file, max_workers=50, dry_run=False):
 if __name__ == "__main__":
     import sys
 
-    csv_file = "neurips2025_positive_scores.csv"
+    csv_file = "papers.csv"
     output_file = "enriched_papers.json"
 
     # Check for dry-run mode
@@ -434,10 +434,10 @@ if __name__ == "__main__":
         print("🧪 DRY RUN MODE ENABLED")
         print("=" * 80)
         print("Will process only the first 10 papers to test the enrichment process.")
-        print("Run without --dry-run flag to process all 370 papers.\n")
+        print("Run without --dry-run flag to process all papers.\n")
         output_file = "enriched_papers_dry_run.json"
 
     # Enrich papers with 50 parallel workers for maximum speed
     # Dry run: ~2-3 minutes for 10 papers
-    # Full run: ~10-15 minutes for 370 papers
+    # Full run: ~10-20 minutes depending on number of papers
     enrich_papers(csv_file, output_file, max_workers=50, dry_run=dry_run)

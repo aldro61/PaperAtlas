@@ -49,7 +49,7 @@ Key Findings: {paper['key_findings']}
         paper_summaries.append(summary)
 
     # Create comprehensive prompt
-    prompt = f"""You are analyzing {len(enriched)} NeurIPS 2025 papers focused on agent systems, benchmarking, and tool use across these categories: {', '.join(categories)}.
+    prompt = f"""You are analyzing {len(enriched)} research papers across these categories: {', '.join(categories)}.
 
 Here are all the papers with their key insights:
 
@@ -217,7 +217,7 @@ def synthesize_conference_summary(enriched_papers_file, output_file):
     with open(html_output, 'w', encoding='utf-8') as f:
         f.write('<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; line-height: 1.8; color: #2c3e50;">\n')
         f.write(f'<div style="text-align: center; margin-bottom: 30px; padding: 30px; background: linear-gradient(135deg, #1c3664 0%, #0a1f44 100%); color: white; border-radius: 8px;">\n')
-        f.write('<h1 style="margin: 0; color: white; font-weight: 600;">NeurIPS 2025: Agent Systems Research Synthesis</h1>\n')
+        f.write('<h1 style="margin: 0; color: white; font-weight: 600;">Research Synthesis</h1>\n')
         f.write(f'<p style="margin: 10px 0 0 0; color: #b8c5d6;">Analysis of {len(enriched)} papers across {len(categories)} research areas</p>\n')
         f.write('</div>\n')
         f.write(synthesis_html)

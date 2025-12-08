@@ -93,11 +93,11 @@ def get_author_info_with_claude(author_name, paper_titles):
     """Use Claude CLI to get author affiliation and role."""
 
     # Create a prompt for Claude
-    prompt = f"""I need to find the academic affiliation, role, photo, and profile link for this researcher presenting at NeurIPS 2025:
+    prompt = f"""I need to find the academic affiliation, role, photo, and profile link for this researcher:
 
 Author: {author_name}
 
-Their NeurIPS 2025 papers include:
+Their papers include:
 {chr(10).join(f"- {title[:100]}" for title in paper_titles[:3])}
 
 Please search for this researcher's information:
@@ -340,7 +340,7 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
         print(f"   {author['highly_relevant_count']} highly relevant papers (≥85), {author['paper_count']} total, avg: {author['avg_score']}")
 
 if __name__ == "__main__":
-    csv_file = "neurips2025_positive_scores.csv"
+    csv_file = "papers.csv"
     output_file = "enriched_authors.json"
 
     # Enrich all authors with at least 1 highly relevant paper (score >= 85)

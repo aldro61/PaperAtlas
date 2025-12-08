@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Extract papers with positive scores from NeurIPS 2025 MHTML file using BeautifulSoup.
+Extract papers with positive scores from Scholar Inbox MHTML file using BeautifulSoup.
 """
 
 import re
@@ -240,8 +240,8 @@ def write_papers_to_csv(papers, output_file):
     print(f"\nExtracted {len(papers)} unique papers with positive scores to {output_file}")
 
 if __name__ == "__main__":
-    input_file = "neurips2025.mhtml"
-    output_file = "neurips2025_positive_scores.csv"
+    input_file = "conference.mhtml"
+    output_file = "papers.csv"
 
     print("Extracting HTML from MHTML file...")
     html_content = extract_html_from_mhtml(input_file)

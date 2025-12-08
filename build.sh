@@ -12,29 +12,30 @@ echo "=========================================="
 echo ""
 
 # Check if the required MHTML file exists
-if [ ! -f "neurips2025.mhtml" ]; then
-    echo "Error: neurips2025.mhtml not found!"
+if [ ! -f "conference.mhtml" ]; then
+    echo "Error: conference.mhtml not found!"
     echo "Please download the conference page from Scholar Inbox as MHTML first."
+    echo "Rename the file to 'conference.mhtml' and place it in this directory."
     echo "See README.md for instructions."
     exit 1
 fi
 
 # Step 1: Extract Paper Data from MHTML
 echo "[Step 1/5] Extracting paper data from MHTML..."
-python scrape_neurips.py
+python scrape_scholar_inbox.py
 echo "✓ Paper extraction complete."
 echo ""
 
 # Step 2: Enrich Papers with AI Analysis
 echo "[Step 2/5] Enriching papers with AI analysis..."
-echo "This may take 10-20 minutes for 300-400 papers."
+echo "This may take 10-20 minutes depending on the number of papers."
 python enrich_papers.py
 echo "✓ Paper enrichment complete."
 echo ""
 
 # Step 3: Enrich Authors with Institutional Data
 echo "[Step 3/5] Enriching authors with institutional data..."
-echo "This may take 5-10 minutes for 50-150 authors."
+echo "This may take 5-10 minutes depending on the number of authors."
 python enrich_authors.py
 echo "✓ Author enrichment complete."
 echo ""

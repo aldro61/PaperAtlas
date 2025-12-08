@@ -28,18 +28,19 @@ This tool helps you navigate large academic conferences by:
 3. Save the entire page as MHTML:
    - Chrome/Edge: Right-click → "Save as..." → Format: "Webpage, Single File (*.mhtml)"
    - The saved file contains all paper data with your relevance scores
+4. Rename the saved file to `conference.mhtml` and place it in this directory
 
 ### 2. Extract Paper Data
 
-Place the saved MHTML file in this directory and run:
+Run the extraction script:
 
 ```bash
-python scrape_neurips.py
+python scrape_scholar_inbox.py
 ```
 
-**What it does**: Extracts paper information (titles, authors, scores, PDFs) from the MHTML file and creates `neurips2025_positive_scores.csv` containing all papers with positive relevance scores.
+**What it does**: Extracts paper information (titles, authors, scores, PDFs) from the MHTML file and creates `papers.csv` containing all papers with positive relevance scores.
 
-**Output**: `neurips2025_positive_scores.csv`
+**Output**: `papers.csv`
 
 ## Pipeline Steps
 
@@ -58,7 +59,7 @@ python enrich_papers.py
   - Research categories (automatically generated across all papers)
 - Creates enriched paper data with skip logic (won't re-process already enriched papers)
 
-**Time**: ~10-20 minutes for 300-400 papers (with 50 parallel workers)
+**Time**: Varies by conference size (typically 10-20 minutes with 50 parallel workers)
 
 **Output**: `enriched_papers.json`
 
@@ -81,7 +82,7 @@ python enrich_authors.py
   - Profile URL
 - Implements skip logic (won't re-enrich already processed authors)
 
-**Time**: ~5-10 minutes for 50-150 authors (with 15 parallel workers)
+**Time**: Varies by number of authors (typically 5-10 minutes with 15 parallel workers)
 
 **Output**: `enriched_authors.json`
 
@@ -148,12 +149,13 @@ python generate_website.py
 
 ```
 PaperAtlas/
-├── scrape_neurips.py              # Extract data from MHTML
+├── scrape_scholar_inbox.py        # Extract data from MHTML
 ├── enrich_papers.py               # AI-powered paper analysis
 ├── enrich_authors.py              # Author institutional lookup
 ├── synthesize_conference.py       # Generate research synthesis
 ├── generate_website.py            # Build final website
-├── neurips2025_positive_scores.csv  # Extracted paper data
+├── conference.mhtml               # Downloaded conference data
+├── papers.csv                     # Extracted paper data
 ├── enriched_papers.json           # Papers with AI analysis
 ├── enriched_authors.json          # Authors with affiliations
 ├── conference_synthesis.html      # Research synthesis

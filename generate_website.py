@@ -319,7 +319,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeurIPS 2025 - My Papers</title>
+    <title>Conference Papers - PaperAtlas</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -1061,7 +1061,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 <body>
     <div class="container">
         <header>
-            <h1>🎓 NeurIPS 2025 Papers</h1>
+            <h1>🎓 Conference Papers</h1>
             <p class="subtitle">Your personalized conference guide</p>
         </header>
 
@@ -1684,7 +1684,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     print(f"Open it in your browser to view your papers!")
 
 if __name__ == "__main__":
-    csv_file = "neurips2025_positive_scores.csv"
+    csv_file = "papers.csv"
     output_file = "index.html"
     enriched_authors_file = "enriched_authors.json"
     enriched_papers_file = "enriched_papers.json"
