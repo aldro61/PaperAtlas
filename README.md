@@ -4,6 +4,8 @@
 
 A pipeline for generating a personalized conference summary website with AI-powered paper analysis, author enrichment, and research synthesis.
 
+> **Note**: This is a quick project I hacked together to understand the landscape of papers and authors that fit my interests at NeurIPS 2025. I am not actively maintaining it but would be very happy to receive pull requests if someone wants to take this further. The `example/` directory contains sample outputs from my NeurIPS 2025 analysis.
+
 ## Overview
 
 This tool helps you navigate large academic conferences by:
@@ -41,6 +43,18 @@ python scrape_scholar_inbox.py
 **What it does**: Extracts paper information (titles, authors, scores, PDFs) from the MHTML file and creates `papers.csv` containing all papers with positive relevance scores.
 
 **Output**: `papers.csv`
+
+## Quick Start
+
+Once you have `conference.mhtml` in the repository directory, you can run the entire pipeline with a single command:
+
+```bash
+bash build.sh
+```
+
+This will execute all steps sequentially: extraction → paper enrichment → author enrichment → synthesis → website generation.
+
+Alternatively, follow the individual pipeline steps below for more control.
 
 ## Pipeline Steps
 
@@ -123,6 +137,8 @@ python generate_website.py
 
 **Open the website**: Simply open `index.html` in your web browser!
 
+**Example**: You can preview the website format by opening `example/index.html` to see sample outputs from a NeurIPS 2025 analysis.
+
 ## Website Features
 
 ### Papers Tab
@@ -154,12 +170,22 @@ PaperAtlas/
 ├── enrich_authors.py              # Author institutional lookup
 ├── synthesize_conference.py       # Generate research synthesis
 ├── generate_website.py            # Build final website
-├── conference.mhtml               # Downloaded conference data
+├── build.sh                       # One-command pipeline runner
+├── banner.png                     # Repository banner image
+├── example/                       # Sample outputs from NeurIPS 2025
+│   ├── enriched_authors.json      #   Example enriched authors
+│   ├── enriched_papers.json       #   Example enriched papers
+│   ├── conference_synthesis.html  #   Example synthesis
+│   └── index.html                 #   Example final website
+│
+# Files you'll generate when running the pipeline:
+├── conference.mhtml               # Your downloaded conference data
 ├── papers.csv                     # Extracted paper data
-├── enriched_papers.json           # Papers with AI analysis
-├── enriched_authors.json          # Authors with affiliations
-├── conference_synthesis.html      # Research synthesis
-└── index.html                     # Final website
+├── enriched_papers.json           # Your papers with AI analysis
+├── enriched_authors.json          # Your authors with affiliations
+├── conference_synthesis.html      # Your research synthesis
+├── conference_synthesis.md        # Markdown version of synthesis
+└── index.html                     # Your final website
 ```
 
 ## Configuration & Customization
