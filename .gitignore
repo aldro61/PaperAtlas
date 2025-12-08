@@ -19,6 +19,12 @@ ENV/
 *.mhtml
 neurips2025_files/
 
+# Output files (keep only in example/)
+enriched_authors.json
+enriched_papers.json
+index.html
+conference_synthesis.html
+
 # OS
 .DS_Store
 Thumbs.db
