@@ -577,13 +577,15 @@ HTML_TEMPLATE = '''
                         <label for="authorModel">👥 Author Enrichment</label>
                         <div class="model-combo">
                             <input type="text" id="authorModel" class="model-input"
-                                   value="openai/gpt-4.1-nano" placeholder="Type a model id...">
+                                   value="openai/gpt-5-mini" placeholder="Type a model id...">
                             <button type="button" class="combo-toggle" aria-label="Select author model" data-list="authorModelOptions">▾</button>
                             <div class="combo-list" id="authorModelOptions">
-                                <button type="button" class="combo-option" data-value="openai/gpt-4.1-nano">GPT-4.1 Nano (fast, cheap)</button>
-                                <button type="button" class="combo-option" data-value="openai/gpt-4.1-mini">GPT-4.1 Mini</button>
+                                <button type="button" class="combo-option" data-value="openai/gpt-5-mini">GPT-5 Mini (default)</button>
+                                <button type="button" class="combo-option" data-value="openai/gpt-5">GPT-5</button>
                                 <button type="button" class="combo-option" data-value="google/gemini-2.5-flash">Gemini 2.5 Flash</button>
-                                <button type="button" class="combo-option" data-value="anthropic/claude-sonnet-4">Claude Sonnet 4</button>
+                                <button type="button" class="combo-option" data-value="google/gemini-3-pro-preview">Gemini 3 Pro Preview</button>
+                                <button type="button" class="combo-option" data-value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</button>
+                                <button type="button" class="combo-option" data-value="anthropic/claude-opus-4.5">Claude Opus 4.5</button>
                             </div>
                         </div>
                         <p class="model-hint">Web search for author affiliations</p>
@@ -593,13 +595,15 @@ HTML_TEMPLATE = '''
                         <label for="paperModel">🔬 Paper Enrichment</label>
                         <div class="model-combo">
                             <input type="text" id="paperModel" class="model-input"
-                                   value="google/gemini-2.5-flash" placeholder="Type a model id...">
+                                   value="openai/gpt-5-mini" placeholder="Type a model id...">
                             <button type="button" class="combo-toggle" aria-label="Select paper model" data-list="paperModelOptions">▾</button>
                             <div class="combo-list" id="paperModelOptions">
-                                <button type="button" class="combo-option" data-value="google/gemini-2.5-flash">Gemini 2.5 Flash (recommended)</button>
-                                <button type="button" class="combo-option" data-value="google/gemini-2.5-pro">Gemini 2.5 Pro</button>
-                                <button type="button" class="combo-option" data-value="anthropic/claude-sonnet-4">Claude Sonnet 4</button>
-                                <button type="button" class="combo-option" data-value="openai/gpt-4.1">GPT-4.1</button>
+                                <button type="button" class="combo-option" data-value="openai/gpt-5-mini">GPT-5 Mini (default)</button>
+                                <button type="button" class="combo-option" data-value="openai/gpt-5">GPT-5</button>
+                                <button type="button" class="combo-option" data-value="google/gemini-2.5-flash">Gemini 2.5 Flash</button>
+                                <button type="button" class="combo-option" data-value="google/gemini-3-pro-preview">Gemini 3 Pro Preview</button>
+                                <button type="button" class="combo-option" data-value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</button>
+                                <button type="button" class="combo-option" data-value="anthropic/claude-opus-4.5">Claude Opus 4.5</button>
                             </div>
                         </div>
                         <p class="model-hint">PDF analysis & key insights</p>
@@ -609,13 +613,15 @@ HTML_TEMPLATE = '''
                         <label for="synthesisModel">🧠 Synthesis</label>
                         <div class="model-combo">
                             <input type="text" id="synthesisModel" class="model-input"
-                                   value="google/gemini-2.5-flash" placeholder="Type a model id...">
+                                   value="openai/gpt-5" placeholder="Type a model id...">
                             <button type="button" class="combo-toggle" aria-label="Select synthesis model" data-list="synthesisModelOptions">▾</button>
                             <div class="combo-list" id="synthesisModelOptions">
-                                <button type="button" class="combo-option" data-value="google/gemini-2.5-flash">Gemini 2.5 Flash (recommended)</button>
-                                <button type="button" class="combo-option" data-value="google/gemini-2.5-pro">Gemini 2.5 Pro</button>
-                                <button type="button" class="combo-option" data-value="anthropic/claude-sonnet-4">Claude Sonnet 4</button>
-                                <button type="button" class="combo-option" data-value="anthropic/claude-opus-4">Claude Opus 4</button>
+                                <button type="button" class="combo-option" data-value="openai/gpt-5-mini">GPT-5 Mini</button>
+                                <button type="button" class="combo-option" data-value="openai/gpt-5">GPT-5 (default)</button>
+                                <button type="button" class="combo-option" data-value="google/gemini-2.5-flash">Gemini 2.5 Flash</button>
+                                <button type="button" class="combo-option" data-value="google/gemini-3-pro-preview">Gemini 3 Pro Preview</button>
+                                <button type="button" class="combo-option" data-value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</button>
+                                <button type="button" class="combo-option" data-value="anthropic/claude-opus-4.5">Claude Opus 4.5</button>
                             </div>
                         </div>
                         <p class="model-hint">Conference trend analysis</p>
