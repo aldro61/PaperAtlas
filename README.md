@@ -13,7 +13,7 @@ cd PaperAtlas
 chmod +x run.sh
 OPENROUTER_API_KEY="your-key" ./run.sh
 ```
-`run.sh` installs dependencies, installs Playwright Chromium if missing, starts the server at http://localhost:5001, and opens it in your browser.
+`run.sh` installs dependencies, ensures Playwright Chromium is installed, starts the server at http://localhost:5001, and opens it in your browser. If you ever see a Playwright error, run `python3 -m playwright install chromium` and retry.
 
 2) In the browser:
 - Paste your Scholar Inbox secret login link.

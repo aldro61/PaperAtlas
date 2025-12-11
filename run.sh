@@ -13,21 +13,11 @@ fi
 if [[ -z "${SKIP_INSTALL:-}" ]]; then
   echo "Installing Python dependencies (set SKIP_INSTALL=1 to skip)..."
   python3 -m pip install --quiet -r requirements.txt
-
-  # Ensure Playwright browsers are installed
-  if ! python3 - <<'PY'
-import sys
-try:
-    from playwright.sync_api import sync_playwright  # noqa: F401
-except Exception:
-    sys.exit(1)
-sys.exit(0)
-PY
-  then
-    echo "Playwright not fully installed, installing Chromium browser..."
-    python3 -m playwright install chromium
-  fi
 fi
+
+# Always ensure Playwright browser is present
+echo "Ensuring Playwright Chromium is installed..."
+python3 -m playwright install chromium >/dev/null 2>&1 || python3 -m playwright install chromium
 
 echo "Starting PaperAtlas at http://localhost:5001 ..."
 python3 app.py &
