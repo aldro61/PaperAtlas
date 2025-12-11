@@ -1135,7 +1135,7 @@ HTML_TEMPLATE = '''
     </script>
 
     <p style="text-align:center; color:#7a7a7a; font-size:0.85rem; margin-top:30px; max-width:800px; margin-left:auto; margin-right:auto;">
-        <a href="https://www.github.com/aldro61/PaperAtlas/" target="_blank" style="color:#60a5fa;">PaperAtlas</a> is an independent project. We are not affiliated with <a href="https://scholar-inbox.com"  target="_blank" style="color:#60a5fa;">Scholar Inbox</a> and are grateful for their paper recommendation service that powers this app.
+        <a href="https://www.github.com/aldro61/PaperAtlas/" target="_blank" style="color:#60a5fa;">PaperAtlas</a> is an independent project by <a href="https://alexdrouin.com" target="_blank" style="color:#60a5fa;">Alexandre Drouin</a>. We are not affiliated with <a href="https://scholar-inbox.com"  target="_blank" style="color:#60a5fa;">Scholar Inbox</a> and are grateful for their paper recommendation service that powers this app.
     </p>
 </body>
 </html>
