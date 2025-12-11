@@ -129,8 +129,6 @@ To force complete re-enrichment, delete the relevant JSON files before running.
 ## Credits
 
 Built with:
-- [Claude CLI](https://github.com/anthropics/claude-code) for AI analysis
-- [Chart.js](https://www.chartjs.org/) for visualizations
 - [Scholar Inbox](https://scholar-inbox.com) for paper scoring and management
 
 ## License
