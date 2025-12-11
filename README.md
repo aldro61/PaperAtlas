@@ -2,170 +2,39 @@
 
 # PaperAtlas
 
-A pipeline for generating a personalized conference summary website with AI-powered paper analysis, author enrichment, and research synthesis.
+A single-step web app to pull your Scholar Inbox conference, enrich authors and papers with LLMs, generate a synthesis, and ship a polished website.
 
-> **Note**: This is a quick project I hacked together to understand the landscape of papers and authors that fit my interests at NeurIPS 2025. I am not actively maintaining it but would be very happy to receive pull requests if someone wants to take this further. The `example/` directory contains sample outputs from my NeurIPS 2025 analysis.
+## Quick Start (Web UI)
 
-## 🎯 Wanted Features
-
-If you're interested in contributing, here are some features that would greatly improve PaperAtlas:
-
-1. **Direct Scholar Inbox Integration**: Currently, users must manually download and save the MHTML file from Scholar Inbox. It would be much better to directly pull papers via the Scholar Inbox API or web scraping, eliminating the manual download step.
-
-2. **LLM-Agnostic Enrichment**: The current implementation relies on Claude Code CLI for paper enrichment and synthesis. Porting these scripts to use standard LLM APIs (OpenAI, Anthropic, etc.) with tool calling for web search and PDF reading would make the pipeline more flexible and accessible to users who prefer different LLM providers.
-
-Pull requests are welcome! Feel free to open an issue to discuss any feature ideas before implementing.
-
-## Overview
-
-This tool helps you navigate large academic conferences by:
-- Analyzing papers based on your research interests
-- Enriching papers with key findings, novelty assessments, and category tags
-- Identifying key authors to meet with institutional affiliations
-- Generating a comprehensive research synthesis with interactive paper references
-- Creating a beautiful, professional website to explore all this information
-
-## Prerequisites
-
-- Python 3.7+
-- [Claude CLI](https://github.com/anthropics/claude-code) installed and configured with your API key
-- A Scholar Inbox account with conference papers scored (scholar-inbox.com)
-
-## Installation
-
-1. Clone this repository:
+1) Clone and run:
 ```bash
 git clone https://github.com/aldro61/PaperAtlas.git
 cd PaperAtlas
+chmod +x run.sh
+OPENROUTER_API_KEY="your-key" ./run.sh
 ```
+`run.sh` installs dependencies, installs Playwright Chromium if missing, starts the server at http://localhost:5001, and opens it in your browser.
 
-2. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
+2) In the browser:
+- Paste your Scholar Inbox secret login link.
+- Pick the conference.
+- Choose/confirm models (defaults provided).
+- Click Start. Watch progress, then open the generated website or download CSV.
 
-3. Verify Claude CLI is configured:
-```bash
-claude --version
-```
+## Requirements
+- Python 3.9+
+- `OPENROUTER_API_KEY` set (for enrichment/synthesis)
+- Playwright Chromium (installed automatically on first run)
+- Scholar Inbox account with scored conferences
 
-## Initial Setup
+## Notes
+- Outputs live in the project root (papers CSV, enriched authors/papers, synthesis HTML, website HTML) and reuse is supported.
+- `run.sh` supports `SKIP_INSTALL=1` if you’ve already installed deps.
 
-### 1. Download Your Conference Data
-
-1. Go to [scholar-inbox.com](https://scholar-inbox.com) and navigate to your conference page
-2. **Important**: Manually expand all poster sessions (click all "Show more" buttons)
-3. Save the entire page as MHTML:
-   - Chrome/Edge: Right-click → "Save as..." → Format: "Webpage, Single File (*.mhtml)"
-   - The saved file contains all paper data with your relevance scores
-4. Rename the saved file to `conference.mhtml` and place it in this directory
-
-### 2. Extract Paper Data
-
-Run the extraction script:
-
-```bash
-python scrape_scholar_inbox.py
-```
-
-**What it does**: Extracts paper information (titles, authors, scores, PDFs) from the MHTML file and creates `papers.csv` containing all papers with positive relevance scores.
-
-**Output**: `papers.csv`
-
-## Quick Start
-
-Once you have `conference.mhtml` in the repository directory, you can run the entire pipeline with a single command:
-
-```bash
-bash build.sh
-```
-
-This will execute all steps sequentially: extraction → paper enrichment → author enrichment → synthesis → website generation.
-
-Alternatively, follow the individual pipeline steps below for more control.
-
-## Pipeline Steps
-
-### Step 1: Enrich Papers with AI Analysis
-
-```bash
-python enrich_papers.py
-```
-
-**What it does**:
-- Reads PDFs for each paper (or falls back to titles for papers without PDFs)
-- Uses Claude to analyze each paper and extract:
-  - Key findings and insights
-  - Novelty assessment (what makes it different from prior work)
-  - Main contribution
-  - Research categories (automatically generated across all papers)
-- Creates enriched paper data with skip logic (won't re-process already enriched papers)
-
-**Time**: Varies by conference size (typically 10-20 minutes with 50 parallel workers)
-
-**Output**: `enriched_papers.json`
-
-**Configuration**:
-- Adjust `max_workers` in the script for faster/slower processing
-- Papers already enriched will be skipped on re-runs
-
-### Step 2: Enrich Authors with Institutional Data
-
-```bash
-python enrich_authors.py
-```
-
-**What it does**:
-- Identifies key authors (first, second, and last authors from papers scoring ≥85)
-- Uses Claude to search for each author's:
-  - Current institutional affiliation
-  - Role/position
-  - Photo (if available)
-  - Profile URL
-- Implements skip logic (won't re-enrich already processed authors)
-
-**Time**: Varies by number of authors (typically 5-10 minutes with 15 parallel workers)
-
-**Output**: `enriched_authors.json`
-
-**Note**: Some authors may not be found (marked as "Unknown") - this is normal for authors with common names or limited online presence.
-
-### Step 3: Generate Research Synthesis
-
-```bash
-python synthesize_conference.py
-```
-
-**What it does**:
-- Analyzes all enriched papers to identify major trends, surprising findings, and connections
-- Generates a comprehensive 2000-3000 word critical synthesis
-- Creates interactive paper references with hover tooltips
-- Includes a collapsible reference index at the bottom
-
-**Time**: ~5-10 minutes (depending on number of papers)
-
-**Output**: `conference_synthesis.html`
-
-**Note**: The synthesis uses Claude CLI with a long context window to analyze all papers together.
-
-### Step 4: Generate the Website
-
-```bash
-python generate_website.py
-```
-
-**What it does**:
-- Combines all enriched data into a single-page application
-- Creates interactive visualizations (score distributions, category charts)
-- Builds sortable, filterable paper and author lists
-- Embeds the research synthesis with working tooltips
-- Generates a professional, modern website design
-
-**Output**: `index.html`
-
-**Open the website**: Simply open `index.html` in your web browser!
-
-**Example**: You can preview the website format by opening `example/index.html` to see sample outputs from a NeurIPS 2025 analysis.
+## Credits
+- Built for Scholar Inbox conference data
+- Uses Playwright for extraction
+- Uses OpenRouter models for author/paper enrichment and synthesis
 
 ## Website Features
 
@@ -189,35 +58,6 @@ python generate_website.py
 - Expandable reference index with links to PDFs
 - Professional formatting with clear sections
 
-## File Structure
-
-```
-PaperAtlas/
-├── README.md                      # This file
-├── requirements.txt               # Python dependencies
-├── scrape_scholar_inbox.py        # Extract data from MHTML
-├── enrich_papers.py               # AI-powered paper analysis
-├── enrich_authors.py              # Author institutional lookup
-├── synthesize_conference.py       # Generate research synthesis
-├── generate_website.py            # Build final website
-├── build.sh                       # One-command pipeline runner
-├── banner.png                     # Repository banner image
-├── example/                       # Sample outputs from NeurIPS 2025
-│   ├── papers.csv                 #   Example extracted papers
-│   ├── enriched_authors.json      #   Example enriched authors
-│   ├── enriched_papers.json       #   Example enriched papers
-│   ├── conference_synthesis.html  #   Example synthesis
-│   └── index.html                 #   Example final website
-│
-# Files you'll generate when running the pipeline:
-├── conference.mhtml               # Your downloaded conference data
-├── papers.csv                     # Extracted paper data
-├── enriched_papers.json           # Your papers with AI analysis
-├── enriched_authors.json          # Your authors with affiliations
-├── conference_synthesis.html      # Your research synthesis
-├── conference_synthesis.md        # Markdown version of synthesis
-└── index.html                     # Your final website
-```
 
 ## Configuration & Customization
 
@@ -279,8 +119,8 @@ To force complete re-enrichment, delete the relevant JSON files before running.
 
 ## Tips for Best Results
 
-1. **Expand all sessions** on Scholar Inbox before saving - collapsed sections won't be captured
-2. **Review your scores** on Scholar Inbox first - the pipeline uses these scores throughout
+1. **Score papers on Scholar Inbox first** - the pipeline uses your relevance scores throughout
+2. **Let the Playwright script run** - it will automatically discover all sessions
 3. **Run steps sequentially** - each step depends on the previous one's output
 4. **Check enrichment quality** - spot-check a few papers/authors to ensure good results
 5. **Regenerate synthesis** if you update paper enrichments - it pulls from enriched data
@@ -295,4 +135,4 @@ Built with:
 
 ## License
 
-MIT License - Feel free to adapt for your own conferences!
+Apache 2.0 - Feel free to adapt for yourself!
