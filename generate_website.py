@@ -440,6 +440,9 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
     page_title = f"{conference_title} - PaperAtlas"
 
+    synthesis_block = synthesis_text if synthesis_text else "<p style='color: #888; font-style: italic;'>No synthesis available. Enriched papers are required to generate a synthesis.</p>"
+    synthesis_block = f"<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">{synthesis_block}</div>"
+
     # Generate HTML with embedded data (placeholders substituted after definition)
     html = '''<!DOCTYPE html>
 <html lang="en">
@@ -1299,7 +1302,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                 </div>
 
                 <div id="synthesisContent" style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); line-height: 1.8; max-width: 900px; margin: 0 auto;">
-                    ''' + (f'<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">{synthesis_text if synthesis_text else "<p style=\'color: #888; font-style: italic;\'>No synthesis available. Enriched papers are required to generate a synthesis.</p>"}</div>' if True else '') + '''
+                    {SYNTHESIS_BLOCK}
                 </div>
             </div>
         </div>
@@ -1877,7 +1880,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 </html>'''
 
     # Substitute dynamic conference metadata
-    html = html.replace("{PAGE_TITLE}", page_title).replace("{CONF_TITLE}", conference_title)
+    html = html.replace("{PAGE_TITLE}", page_title).replace("{CONF_TITLE}", conference_title).replace("{SYNTHESIS_BLOCK}", synthesis_block)
 
     # Write HTML file
     with open(output_file, 'w', encoding='utf-8') as f:
