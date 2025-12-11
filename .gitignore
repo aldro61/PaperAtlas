@@ -15,17 +15,17 @@ ENV/
 *.swo
 .claude/
 
+# Ignore deprecated code
+deprecated/
+
 # Data files
 *.mhtml
 *.csv
 *_files/
 
-# Output files (keep only in example/)
-enriched_authors.json
-enriched_papers.json
-index.html
-conference_synthesis.html
-conference_synthesis.md
+# Generated data/output (root-level)
+*.json
+*.html
 
 # OS
 .DS_Store

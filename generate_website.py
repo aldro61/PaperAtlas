@@ -4,8 +4,10 @@ Generate an HTML website with embedded paper data.
 """
 
 import csv
+import glob
 import json
 import os
+import re
 import sys
 
 # Import synthesis generation
@@ -110,9 +112,14 @@ def analyze_authors(papers, first_last_only=True):
 
     for paper in papers:
         authors = parse_authors(paper['authors'])
-        score = int(paper['score'])
-        relevant = int(paper['relevant_to_users']) if paper['relevant_to_users'] else 0
-        reads = int(paper['read_by_users']) if paper['read_by_users'] else 0
+        score_raw = paper.get('relevance_score', paper.get('score', 0))
+        try:
+            score = float(score_raw)
+        except (TypeError, ValueError):
+            score = 0.0
+
+        relevant = 0
+        reads = 0
 
         # Filter to first, second, and last authors if enabled
         if first_last_only and len(authors) > 3:
@@ -130,7 +137,7 @@ def analyze_authors(papers, first_last_only=True):
             author_papers[author].append({
                 'title': paper['title'],
                 'score': score,
-                'session': paper['session_type'],
+                'session': paper.get('session_type', paper.get('session_name', '')),
                 'pdf_url': paper['pdf_url'],
                 'relevant': relevant,
                 'reads': reads
@@ -163,78 +170,139 @@ def analyze_authors(papers, first_last_only=True):
 
     return author_stats
 
-def generate_website(csv_file, output_file, enriched_authors_file=None, enriched_papers_file=None):
-    """Generate HTML website with embedded data from CSV."""
+def generate_website(csv_file, output_file, enriched_authors_file=None, enriched_papers_file=None, conference_title=None, synthesis_file=None):
+    """Generate HTML website with embedded data.
 
-    # Read CSV data
-    with open(csv_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        papers = list(reader)
+    Can load papers from either:
+    1. enriched_papers_file (JSON with full enrichment data) - preferred
+    2. csv_file (basic paper data, optionally merged with enriched_papers_file)
 
-    print(f"Loaded {len(papers)} papers from CSV")
+    Args:
+        csv_file: Path to papers CSV file
+        output_file: Path for output HTML file
+        enriched_authors_file: Optional path to enriched authors JSON
+        enriched_papers_file: Optional path to enriched papers JSON
+        conference_title: Optional conference title (e.g., "NeurIPS 2025"). If not provided, derived from filename.
+        synthesis_file: Optional path to a pre-generated synthesis HTML/MD file.
+    """
 
-    # Load enriched paper data if available
+    papers = []
     all_categories = []
-    enriched_papers_data = {}
-    if enriched_papers_file:
+
+    # Try to load from enriched papers JSON first (preferred - contains all data)
+    if enriched_papers_file and os.path.exists(enriched_papers_file):
         try:
             with open(enriched_papers_file, 'r', encoding='utf-8') as f:
                 enriched_data = json.load(f)
                 all_categories = enriched_data.get('categories', [])
-                enriched_list = enriched_data.get('papers', [])
+                papers = enriched_data.get('papers', [])
 
-                # Create lookup by title
-                for ep in enriched_list:
-                    enriched_papers_data[ep['title']] = {
-                        'key_findings': ep.get('key_findings', ''),
-                        'description': ep.get('description', ''),
-                        'key_contribution': ep.get('key_contribution', ''),
-                        'novelty': ep.get('novelty', ''),
-                        'ai_categories': ep.get('ai_categories', [])
-                    }
-                print(f"Loaded enriched data for {len(enriched_papers_data)} papers")
+                # Normalize field names for the website
+                for paper in papers:
+                    # Ensure 'score' field exists (website JS uses this)
+                    if 'score' not in paper and 'relevance_score' in paper:
+                        paper['score'] = paper['relevance_score']
+                    # Ensure session_type exists for display
+                    if 'session_type' not in paper and 'session_name' in paper:
+                        paper['session_type'] = paper['session_name']
+
+                print(f"Loaded {len(papers)} papers from enriched JSON")
                 print(f"Found {len(all_categories)} categories: {', '.join(all_categories)}")
-        except FileNotFoundError:
-            print(f"No enriched papers file found at {enriched_papers_file}")
         except Exception as e:
-            print(f"Warning: Could not load enriched papers: {e}")
+            print(f"Warning: Could not load enriched papers JSON: {e}")
+            papers = []
 
-    # Merge enriched data with papers
-    for paper in papers:
-        if paper['title'] in enriched_papers_data:
-            enrichment = enriched_papers_data[paper['title']]
-            paper['key_findings'] = enrichment['key_findings']
-            paper['description'] = enrichment['description']
-            paper['key_contribution'] = enrichment['key_contribution']
-            paper['novelty'] = enrichment['novelty']
-            paper['ai_categories'] = enrichment['ai_categories']
-        else:
-            paper['key_findings'] = ''
-            paper['description'] = ''
-            paper['key_contribution'] = ''
-            paper['novelty'] = ''
-            paper['ai_categories'] = []
+    # Fall back to CSV if no papers loaded from JSON
+    if not papers and csv_file and os.path.exists(csv_file):
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            papers = list(reader)
+
+        print(f"Loaded {len(papers)} papers from CSV")
+
+        # Load enriched paper data if available and merge
+        enriched_papers_data = {}
+        if enriched_papers_file:
+            try:
+                with open(enriched_papers_file, 'r', encoding='utf-8') as f:
+                    enriched_data = json.load(f)
+                    all_categories = enriched_data.get('categories', [])
+                    enriched_list = enriched_data.get('papers', [])
+
+                    # Create lookup by title
+                    for ep in enriched_list:
+                        enriched_papers_data[ep['title']] = {
+                            'key_findings': ep.get('key_findings', ''),
+                            'description': ep.get('description', ''),
+                            'key_contribution': ep.get('key_contribution', ''),
+                            'novelty': ep.get('novelty', ''),
+                            'ai_categories': ep.get('ai_categories', [])
+                        }
+                    print(f"Loaded enriched data for {len(enriched_papers_data)} papers")
+                    print(f"Found {len(all_categories)} categories: {', '.join(all_categories)}")
+            except FileNotFoundError:
+                print(f"No enriched papers file found at {enriched_papers_file}")
+            except Exception as e:
+                print(f"Warning: Could not load enriched papers: {e}")
+
+        # Merge enriched data with papers from CSV
+        for paper in papers:
+            # Normalize score field
+            if 'score' not in paper and 'relevance_score' in paper:
+                paper['score'] = paper['relevance_score']
+
+            if paper['title'] in enriched_papers_data:
+                enrichment = enriched_papers_data[paper['title']]
+                paper['key_findings'] = enrichment['key_findings']
+                paper['description'] = enrichment['description']
+                paper['key_contribution'] = enrichment['key_contribution']
+                paper['novelty'] = enrichment['novelty']
+                paper['ai_categories'] = enrichment['ai_categories']
+            else:
+                paper['key_findings'] = ''
+                paper['description'] = ''
+                paper['key_contribution'] = ''
+                paper['novelty'] = ''
+                paper['ai_categories'] = []
+
+    if not papers:
+        print("Error: No papers found in either enriched JSON or CSV file")
+        return
 
     # Analyze authors
     print("Analyzing authors...")
     author_stats = analyze_authors(papers)
     print(f"Found {len(author_stats)} unique authors")
 
-    # Load enriched author data if available
+    # Load enriched author data if available (supports JSON list or CSV)
     enriched_data = {}
     if enriched_authors_file:
         try:
-            with open(enriched_authors_file, 'r', encoding='utf-8') as f:
-                enriched_authors = json.load(f)
-                # Create a lookup dict by author name
-                for author in enriched_authors:
-                    enriched_data[author['name']] = {
-                        'affiliation': author.get('affiliation', 'Unknown'),
-                        'role': author.get('role', 'Unknown'),
-                        'photo_url': author.get('photo_url', None),
-                        'profile_url': author.get('profile_url', None)
-                    }
-                print(f"Loaded enriched data for {len(enriched_data)} authors")
+            if enriched_authors_file.lower().endswith('.csv'):
+                with open(enriched_authors_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        name = row.get('name') or row.get('author') or row.get('author_name')
+                        if not name:
+                            continue
+                        enriched_data[name] = {
+                            'affiliation': row.get('affiliation', 'Unknown'),
+                            'role': row.get('role', 'Unknown'),
+                            'photo_url': row.get('photo_url') or None,
+                            'profile_url': row.get('profile_url') or None
+                        }
+                print(f"Loaded enriched data for {len(enriched_data)} authors from CSV")
+            else:
+                with open(enriched_authors_file, 'r', encoding='utf-8') as f:
+                    enriched_authors = json.load(f)
+                    for author in enriched_authors:
+                        enriched_data[author['name']] = {
+                            'affiliation': author.get('affiliation', 'Unknown'),
+                            'role': author.get('role', 'Unknown'),
+                            'photo_url': author.get('photo_url', None),
+                            'profile_url': author.get('profile_url', None)
+                        }
+                print(f"Loaded enriched data for {len(enriched_data)} authors from JSON")
         except FileNotFoundError:
             print(f"Warning: Enriched authors file not found at {enriched_authors_file}")
         except Exception as e:
@@ -253,6 +321,24 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             author['photo_url'] = None
             author['profile_url'] = None
 
+        # Sort each author's papers by relevance score (desc), then title
+        author['papers'].sort(
+            key=lambda p: (
+                float(p.get('score', 0) or 0),
+                (p.get('title') or '')
+            ),
+            reverse=True,
+        )
+
+    # Sort authors by highly relevant papers, then average relevance score
+    author_stats.sort(
+        key=lambda a: (
+            a.get('highly_relevant_count', 0),
+            a.get('avg_score', 0),
+        ),
+        reverse=True,
+    )
+
     # Load or generate synthesis if we have enriched papers
     synthesis_text = None
     enriched_paper_count = sum(1 for p in papers if p.get('key_findings'))
@@ -263,49 +349,75 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     for i, paper in enumerate(enriched_papers, 1):
         paper_titles[str(i)] = {
             'title': paper['title'],
-            'score': paper.get('score', 'N/A'),
+            'score': paper.get('relevance_score', paper.get('score', 'N/A')),
             'categories': paper.get('ai_categories', [])
         }
     print(f"Built mapping for {len(paper_titles)} paper references")
 
-    # First, try to load pre-generated synthesis from HTML file (new format)
-    synthesis_html_file = os.path.join(os.path.dirname(csv_file), 'conference_synthesis.html')
-    synthesis_md_file = os.path.join(os.path.dirname(csv_file), 'conference_synthesis.md')
+    # First, try to load pre-generated synthesis from HTML/MD file
+    base_dir = os.path.dirname(csv_file) or "."
+    stem = os.path.splitext(os.path.basename(csv_file))[0]
+    if stem.endswith('_papers'):
+        stem = stem[:-7]
 
-    if os.path.exists(synthesis_html_file):
+    html_candidates = []
+    md_candidates = []
+
+    if synthesis_file:
+        html_candidates.append(synthesis_file)
+        md_candidates.append(os.path.splitext(synthesis_file)[0] + '.md')
+
+    html_candidates.extend(sorted(glob.glob(os.path.join(base_dir, f"{stem}_synthesis*.html"))))
+    html_candidates.append(os.path.join(base_dir, 'conference_synthesis.html'))
+
+    md_candidates.extend(sorted(glob.glob(os.path.join(base_dir, f"{stem}_synthesis*.md"))))
+    md_candidates.append(os.path.join(base_dir, 'conference_synthesis.md'))
+
+    def load_html(path):
+        nonlocal synthesis_text
         try:
-            with open(synthesis_html_file, 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 synthesis_text = f.read()
-                print(f"✓ Loaded synthesis from {synthesis_html_file} (with correct tooltips)")
+                print(f"✓ Loaded synthesis from {path} (with correct tooltips)")
+                return True
         except Exception as e:
-            print(f"⚠ Error loading HTML synthesis file: {e}")
-    elif os.path.exists(synthesis_md_file):
-        # Backwards compatibility with old markdown format
+            print(f"⚠ Error loading HTML synthesis file {path}: {e}")
+            return False
+
+    def load_md(path):
+        nonlocal synthesis_text
         try:
-            with open(synthesis_md_file, 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 synthesis_content = f.read()
-                # Extract the main content (skip the header and reference index)
                 if '---' in synthesis_content:
                     parts = synthesis_content.split('---')
                     if len(parts) >= 3:
-                        # Get the middle part (between the two --- markers)
                         synthesis_md = parts[1].strip()
                     else:
                         synthesis_md = synthesis_content
                 else:
                     synthesis_md = synthesis_content
 
-                # Convert markdown to HTML with interactive paper references
                 synthesis_text = markdown_to_html(synthesis_md, paper_titles)
-                print(f"✓ Loaded synthesis from {synthesis_md_file} (old format - may have incorrect tooltips)")
+                print(f"✓ Loaded synthesis from {path} (old format - may have incorrect tooltips)")
                 print(f"  ⚠ Regenerate synthesis with 'python synthesize_conference.py' for correct tooltips")
+                return True
         except Exception as e:
-            print(f"⚠ Error loading markdown synthesis file: {e}")
+            print(f"⚠ Error loading markdown synthesis file {path}: {e}")
+            return False
+
+    for path in html_candidates:
+        if os.path.exists(path) and load_html(path):
+            break
+    else:
+        for path in md_candidates:
+            if os.path.exists(path) and load_md(path):
+                break
 
     # Fallback: generate synthesis if not loaded and we have enriched papers
-    if not synthesis_text and enriched_paper_count > 0 and generate_synthesis and all_categories:
+    if not synthesis_text and enriched_paper_count > 0 and generate_synthesis:
         print(f"Generating research synthesis from {enriched_paper_count} enriched papers...")
-        result = generate_synthesis(papers, all_categories)
+        result = generate_synthesis(papers, all_categories, conference_name=conference_title)
         if result and isinstance(result, tuple):
             synthesis_text, _ = result
         else:
@@ -313,13 +425,28 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     elif not synthesis_text and enriched_paper_count == 0:
         print("No enriched papers available for synthesis")
 
-    # Generate HTML with embedded data
+    # Use provided conference title or derive from filename (e.g., neurips2025 -> NEURIPS 2025)
+    if not conference_title:
+        conference_title = "Conference Papers"
+        source_path = enriched_papers_file or csv_file
+        if source_path:
+            base_name = os.path.splitext(os.path.basename(source_path))[0]
+            prefix = base_name.split('_')[0] if '_' in base_name else base_name
+            match = re.match(r'([A-Za-z]+)(\d{4})?', prefix)
+            if match:
+                conf_code = match.group(1).upper()
+                year = match.group(2) or ''
+                conference_title = f"{conf_code} {year}".strip()
+
+    page_title = f"{conference_title} - PaperAtlas"
+
+    # Generate HTML with embedded data (placeholders substituted after definition)
     html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conference Papers - PaperAtlas</title>
+    <title>{PAGE_TITLE}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -344,7 +471,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
         header {
             background: linear-gradient(135deg, #1c3664 0%, #0a1f44 100%);
-            padding: 60px 20px;
+            padding: 40px 20px 50px;
             margin-bottom: 40px;
             text-align: center;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -469,6 +596,16 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
         select:hover {
             background: #f8f9ff;
+        }
+
+        #paperSearch:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        #paperSearch::placeholder {
+            color: #999;
         }
 
         .paper-card {
@@ -1061,8 +1198,8 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 <body>
     <div class="container">
         <header>
-            <h1>🎓 Conference Papers</h1>
-            <p class="subtitle">Your personalized conference guide</p>
+            <h1>{CONF_TITLE}</h1>
+            <p class="subtitle">Your personalized conference guide powered by <a href="https://github.com/aldro61/PaperAtlas" target="_blank" style="color:#60a5fa;">PaperAtlas</a></p>
         </header>
 
         <div class="tabs">
@@ -1085,10 +1222,6 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                     <div class="stat-label">Top Score</div>
                     <div class="stat-value" id="topScore">-</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Most Popular</div>
-                    <div class="stat-value" id="mostPopular">-</div>
-                </div>
             </div>
 
             <div class="chart-section">
@@ -1105,11 +1238,23 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                         <label for="sortBy">Sort by:</label>
                         <select id="sortBy">
                             <option value="score">Score (highest first)</option>
-                            <option value="relevant">Most Relevant</option>
-                            <option value="reads">Most Read</option>
-                            <option value="title">Title (A-Z)</option>
+                            <option value="title">Title (A–Z)</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="search-container" style="margin-bottom: 20px;">
+                    <div style="position: relative;">
+                        <input type="text" id="paperSearch" placeholder="Search papers by title, author, or keywords..."
+                               style="width: 100%; padding: 14px 16px 14px 45px; border: 2px solid #e8ecef; border-radius: 10px;
+                                      font-size: 1em; background: white; transition: border-color 0.3s, box-shadow 0.3s;">
+                        <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 1.2em; opacity: 0.5;">🔍</span>
+                        <button id="clearSearch" onclick="clearSearchBox()"
+                                style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+                                       background: none; border: none; font-size: 1.2em; cursor: pointer; opacity: 0.5; display: none;"
+                                title="Clear search">✕</button>
+                    </div>
+                    <div id="searchResultsInfo" style="margin-top: 8px; font-size: 0.9em; color: #666; display: none;"></div>
                 </div>
 
                 <div id="categoryFilters" style="margin-bottom: 25px;"></div>
@@ -1184,37 +1329,35 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
         let currentPapersPage = 1;
         const papersPerPage = 20;
 
+        // Search state
+        let searchQuery = '';
+
         function displayStats() {
             const scores = papers.map(p => parseInt(p.score));
             const totalPapers = papers.length;
             const avgScore = (scores.reduce((a, b) => a + b, 0) / totalPapers).toFixed(1);
             const topScore = Math.max(...scores);
 
-            // Find most popular paper (by relevant_to_users)
-            const mostPopular = papers.reduce((max, p) => {
-                const relevant = parseInt(p.relevant_to_users) || 0;
-                const maxRelevant = parseInt(max.relevant_to_users) || 0;
-                return relevant > maxRelevant ? p : max;
-            }, papers[0]);
-
             document.getElementById('totalPapers').textContent = totalPapers;
             document.getElementById('avgScore').textContent = avgScore;
             document.getElementById('topScore').textContent = topScore;
-            document.getElementById('mostPopular').textContent = `${parseInt(mostPopular.relevant_to_users) || 0} 👍`;
         }
 
         function displayChart() {
             const scores = papers.map(p => parseInt(p.score));
 
-            // Create histogram bins
+            // Create histogram bins focused on the 50-100 range (5-point resolution)
             const bins = {};
-            const binSize = 10;
-            for (let i = 0; i < 100; i += binSize) {
+            const binSize = 5;
+            const minBound = 50;
+            const maxBound = 100;
+            for (let i = minBound; i <= maxBound; i += binSize) {
                 bins[i] = 0;
             }
 
             scores.forEach(score => {
-                const bin = Math.floor(score / binSize) * binSize;
+                const clamped = Math.max(minBound, Math.min(maxBound, score));
+                const bin = Math.floor((clamped - minBound) / binSize) * binSize + minBound;
                 bins[bin] = (bins[bin] || 0) + 1;
             });
 
@@ -1222,7 +1365,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(bins).map(b => `${b}-${parseInt(b) + binSize - 1}`),
+                    labels: Object.keys(bins).map(b => `${b}-${Math.min(parseInt(b) + binSize - 1, maxBound)}`),
                     datasets: [{
                         label: 'Number of Papers',
                         data: Object.values(bins),
@@ -1337,11 +1480,6 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                     </div>
                 ` : ''}
 
-                <div style="margin-top: 30px;">
-                    ${paper.relevant_to_users ? `<span style="margin-right: 15px;">👍 <strong>${paper.relevant_to_users}</strong> found relevant</span>` : ''}
-                    ${paper.read_by_users ? `<span>📖 <strong>${paper.read_by_users}</strong> reads</span>` : ''}
-                </div>
-
                 ${paper.pdf_url ? `
                     <div style="margin-top: 25px;">
                         <a href="${paper.pdf_url}" target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
@@ -1363,6 +1501,27 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             currentPapersPage = page;
             let sortedPapers = [...papers];
 
+            // Filter by search query
+            if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase().trim();
+                const queryTerms = query.split(/\s+/).filter(t => t.length > 0);
+
+                sortedPapers = sortedPapers.filter(paper => {
+                    const title = (paper.title || '').toLowerCase();
+                    const authors = (paper.authors || '').toLowerCase();
+                    const description = (paper.description || '').toLowerCase();
+                    const keyFindings = (paper.key_findings || '').toLowerCase();
+                    const novelty = (paper.novelty || '').toLowerCase();
+                    const categories = (paper.ai_categories || []).join(' ').toLowerCase();
+                    const session = (paper.session_name || paper.session_type || '').toLowerCase();
+
+                    const searchableText = `${title} ${authors} ${description} ${keyFindings} ${novelty} ${categories} ${session}`;
+
+                    // All query terms must match somewhere
+                    return queryTerms.every(term => searchableText.includes(term));
+                });
+            }
+
             // Filter by selected categories
             if (selectedCategories.size > 0) {
                 sortedPapers = sortedPapers.filter(paper => {
@@ -1373,15 +1532,18 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                 });
             }
 
+            // Update search results info
+            const searchResultsInfo = document.getElementById('searchResultsInfo');
+            if (searchQuery.trim()) {
+                searchResultsInfo.style.display = 'block';
+                searchResultsInfo.innerHTML = `Found <strong>${sortedPapers.length}</strong> paper${sortedPapers.length !== 1 ? 's' : ''} matching "<em>${searchQuery}</em>"`;
+            } else {
+                searchResultsInfo.style.display = 'none';
+            }
+
             switch(sortBy) {
                 case 'score':
                     sortedPapers.sort((a, b) => parseInt(b.score) - parseInt(a.score));
-                    break;
-                case 'relevant':
-                    sortedPapers.sort((a, b) => (parseInt(b.relevant_to_users) || 0) - (parseInt(a.relevant_to_users) || 0));
-                    break;
-                case 'reads':
-                    sortedPapers.sort((a, b) => (parseInt(b.read_by_users) || 0) - (parseInt(a.read_by_users) || 0));
                     break;
                 case 'title':
                     sortedPapers.sort((a, b) => a.title.localeCompare(b.title));
@@ -1411,11 +1573,6 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                         ${paper.session_type ? `<div class="detail-item"><strong>Session:</strong> ${paper.session_type}</div>` : ''}
                         ${paper.session_location ? `<div class="detail-item"><strong>Location:</strong> ${paper.session_location}</div>` : ''}
                     </div>
-                    <div class="paper-stats">
-                        ${paper.relevant_to_users ? `<div class="stat-badge">👍 <strong>${paper.relevant_to_users}</strong> found relevant</div>` : ''}
-                        ${paper.read_by_users ? `<div class="stat-badge">📖 <strong>${paper.read_by_users}</strong> reads</div>` : ''}
-                    </div>
-
                     <div class="paper-expandable">
                         ${paper.novelty ? `
                             <div class="paper-key-info" style="background: linear-gradient(135deg, #fff5e6 0%, #ffe6f0 100%); border-left: 3px solid #f59e0b;">
@@ -1470,6 +1627,28 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             }
         }
 
+        // Search box helper functions
+        function clearSearchBox() {
+            const searchInput = document.getElementById('paperSearch');
+            searchInput.value = '';
+            searchQuery = '';
+            document.getElementById('clearSearch').style.display = 'none';
+            displayPapers(document.getElementById('sortBy').value, 1);
+        }
+
+        let searchDebounceTimer = null;
+        function handleSearchInput(e) {
+            const clearBtn = document.getElementById('clearSearch');
+            clearBtn.style.display = e.target.value ? 'block' : 'none';
+
+            // Debounce search to avoid too many re-renders
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                searchQuery = e.target.value;
+                displayPapers(document.getElementById('sortBy').value, 1);
+            }, 200);
+        }
+
         // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
             displayStats();
@@ -1479,6 +1658,16 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
             document.getElementById('sortBy').addEventListener('change', (e) => {
                 displayPapers(e.target.value);
+            });
+
+            // Initialize search box
+            const searchInput = document.getElementById('paperSearch');
+            searchInput.addEventListener('input', handleSearchInput);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    clearSearchBox();
+                    searchInput.blur();
+                }
             });
 
             // Initialize authors display
@@ -1590,12 +1779,25 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             // Filter to authors with at least 1 highly relevant paper (score >= 85)
             let sortedAuthors = authors
                 .filter(a => a.highly_relevant_count >= 1)
+                .map(a => ({
+                    ...a,
+                    papers: (a.papers || []).slice().sort((p1, p2) => {
+                        const s1 = parseFloat(p1.score || 0);
+                        const s2 = parseFloat(p2.score || 0);
+                        if (s1 !== s2) return s2 - s1;
+                        return (p1.title || '').localeCompare(p2.title || '');
+                    })
+                }))
                 .sort((a, b) => {
-                    // Sort by highly relevant count first, then total papers as tiebreaker
                     if (b.highly_relevant_count !== a.highly_relevant_count) {
                         return b.highly_relevant_count - a.highly_relevant_count;
                     }
-                    return b.paper_count - a.paper_count;
+                    const avgA = parseFloat(a.avg_score || 0);
+                    const avgB = parseFloat(b.avg_score || 0);
+                    if (avgB !== avgA) {
+                        return avgB - avgA;
+                    }
+                    return (a.name || '').localeCompare(b.name || '');
                 });
 
             const totalAuthors = sortedAuthors.length;
@@ -1632,8 +1834,6 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                                 <div class="author-badge" title="Average relevance score across all their papers (higher = better alignment with your interests)">
                                     📊 <strong>${author.avg_score}</strong> avg
                                 </div>
-                                ${author.total_relevant > 0 ? `<div class="author-badge" title="Total times their papers were marked relevant by other users">👍 <strong>${author.total_relevant}</strong></div>` : ''}
-                                ${author.total_reads > 0 ? `<div class="author-badge" title="Total times their papers were read by other users">📖 <strong>${author.total_reads}</strong></div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -1676,6 +1876,9 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 </body>
 </html>'''
 
+    # Substitute dynamic conference metadata
+    html = html.replace("{PAGE_TITLE}", page_title).replace("{CONF_TITLE}", conference_title)
+
     # Write HTML file
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html)
@@ -1684,9 +1887,62 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     print(f"Open it in your browser to view your papers!")
 
 if __name__ == "__main__":
-    csv_file = "papers.csv"
-    output_file = "index.html"
-    enriched_authors_file = "enriched_authors.json"
-    enriched_papers_file = "enriched_papers.json"
+    import argparse
+    import glob
 
-    generate_website(csv_file, output_file, enriched_authors_file, enriched_papers_file)
+    parser = argparse.ArgumentParser(description='Generate HTML website from conference data')
+    parser.add_argument('--stem', '-s', help='Conference stem (e.g., "neurips2025") to auto-detect files')
+    parser.add_argument('--csv', help='Path to papers CSV file')
+    parser.add_argument('--authors', help='Path to enriched authors JSON file')
+    parser.add_argument('--papers', help='Path to enriched papers JSON file')
+    parser.add_argument('--synthesis', help='Path to pre-generated synthesis HTML/MD file')
+    parser.add_argument('--output', '-o', help='Output HTML file path')
+
+    args = parser.parse_args()
+
+    # If stem is provided, use convention-based filenames
+    if args.stem:
+        stem = args.stem
+        csv_file = args.csv or f'{stem}_papers.csv'
+        enriched_authors_file = args.authors or f'{stem}_enriched_authors.json'
+        enriched_papers_file = args.papers or f'{stem}_enriched_papers.json'
+        output_file = args.output or f'{stem}_website.html'
+        synth_candidates = sorted(glob.glob(f'{stem}_synthesis*.html'), key=os.path.getmtime, reverse=True)
+        synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
+    # Auto-detect: look for *_enriched_papers.json files
+    elif not args.csv and not args.papers:
+        enriched_files = glob.glob('*_enriched_papers.json')
+        if enriched_files:
+            # Use the most recently modified one
+            enriched_papers_file = max(enriched_files, key=os.path.getmtime)
+            stem = enriched_papers_file.replace('_enriched_papers.json', '')
+            csv_file = f'{stem}_papers.csv'
+            enriched_authors_file = f'{stem}_enriched_authors.json'
+            output_file = args.output or f'{stem}_website.html'
+            synth_candidates = sorted(glob.glob(f'{stem}_synthesis*.html'), key=os.path.getmtime, reverse=True)
+            synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
+            print(f"Auto-detected conference: {stem}")
+        else:
+            # Fall back to generic names
+            csv_file = "papers.csv"
+            enriched_authors_file = "enriched_authors.json"
+            enriched_papers_file = "enriched_papers.json"
+            output_file = args.output or "index.html"
+            synthesis_file = args.synthesis
+    else:
+        # Use explicit arguments or defaults
+        csv_file = args.csv or "papers.csv"
+        enriched_authors_file = args.authors or "enriched_authors.json"
+        enriched_papers_file = args.papers or "enriched_papers.json"
+        output_file = args.output or "index.html"
+        synthesis_file = args.synthesis
+
+    print(f"Input files:")
+    print(f"  CSV: {csv_file}")
+    print(f"  Enriched papers: {enriched_papers_file}")
+    print(f"  Enriched authors: {enriched_authors_file}")
+    print(f"  Synthesis: {synthesis_file or 'auto'}")
+    print(f"Output: {output_file}")
+    print()
+
+    generate_website(csv_file, output_file, enriched_authors_file, enriched_papers_file, synthesis_file=synthesis_file)

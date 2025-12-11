@@ -4,15 +4,64 @@ Generate a high-level critical summary of the conference research.
 """
 
 import json
-import subprocess
+import os
 import sys
 
-def generate_synthesis(papers, categories):
+from openai import OpenAI
+
+# Default synthesis model (Gemini 2.5 Flash for consistency with paper enrichment)
+DEFAULT_SYNTHESIS_MODEL = os.environ.get("OPENROUTER_SYNTHESIS_MODEL", "google/gemini-2.5-flash")
+
+
+class OpenRouterSynthesisAgent:
+    """Generate conference synthesis via OpenRouter using Gemini 2.5 Flash."""
+
+    def __init__(self, api_key=None, model: str = DEFAULT_SYNTHESIS_MODEL, debug: bool = False):
+        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        if not self.api_key:
+            raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY.")
+
+        base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://github.com/aldro61/PaperAtlas")
+        app_title = os.environ.get("OPENROUTER_APP_TITLE", "PaperAtlas Synthesis")
+        default_headers = {k: v for k, v in {
+            "HTTP-Referer": referer,
+            "X-Title": app_title,
+        }.items() if v}
+
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=base_url,
+            default_headers=default_headers,
+        )
+        self.model = model
+        self.debug = debug
+
+    def generate(self, prompt: str) -> str:
+        """Call the model and return the synthesis text."""
+        if self.debug:
+            print(f"🤖 Calling OpenRouter synthesis model: {self.model}")
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+        )
+
+        if not response.choices or not response.choices[0].message:
+            raise RuntimeError("No response from OpenRouter synthesis model")
+
+        return response.choices[0].message.content.strip()
+
+def generate_synthesis(papers, categories, model=None, debug=False, conference_name=None):
     """Generate synthesis from papers and categories.
 
     Args:
         papers: List of enriched papers
         categories: List of categories
+        model: Model to use for synthesis (optional, defaults to OPENROUTER_SYNTHESIS_MODEL or gemini-2.5-flash)
+        debug: Enable verbose logging for the synthesis call
+        conference_name: Optional human-readable conference name (e.g., "NeurIPS 2025")
 
     Returns:
         tuple: (synthesis_html, paper_index) where paper_index maps paper numbers to metadata
@@ -23,6 +72,9 @@ def generate_synthesis(papers, categories):
     if len(enriched) == 0:
         return None, {}
 
+    # Default model fallback when not provided
+    model = model or DEFAULT_SYNTHESIS_MODEL
+
     print(f"Generating synthesis for {len(enriched)} enriched papers...")
 
     # Build paper index for later reference
@@ -30,7 +82,7 @@ def generate_synthesis(papers, categories):
     for i, paper in enumerate(enriched, 1):
         paper_index[i] = {
             'title': paper['title'],
-            'score': paper.get('score', 'N/A'),
+            'score': paper.get('score', paper.get('relevance_score', 'N/A')),
             'categories': paper.get('ai_categories', []),
             'pdf_url': paper.get('pdf_url', '')
         }
@@ -38,9 +90,10 @@ def generate_synthesis(papers, categories):
     # Prepare paper summaries for Claude
     paper_summaries = []
     for i, paper in enumerate(enriched, 1):
+        score_val = paper.get('score', paper.get('relevance_score', 'N/A'))
         summary = f"""
 Paper {i}: {paper['title']}
-Score: {paper['score']} (relevance to your research)
+Score: {score_val} (relevance to your research)
 Categories: {', '.join(paper.get('ai_categories', []))}
 Novelty: {paper['novelty']}
 Key Contribution: {paper['key_contribution']}
@@ -49,7 +102,8 @@ Key Findings: {paper['key_findings']}
         paper_summaries.append(summary)
 
     # Create comprehensive prompt
-    prompt = f"""You are analyzing {len(enriched)} research papers across these categories: {', '.join(categories)}.
+    conf_label = conference_name or "this conference"
+    prompt = f"""You are analyzing {len(enriched)} research papers presented at {conf_label} across these categories: {', '.join(categories)}.
 
 Here are all the papers with their key insights:
 
@@ -57,7 +111,7 @@ Here are all the papers with their key insights:
 {chr(10).join(paper_summaries)}
 {'='*80}
 
-Please write a COMPREHENSIVE, critical synthesis of what someone should have learned at this conference. Your synthesis should:
+Please write a COMPREHENSIVE, critical synthesis of what someone should have learned at {conf_label}. Your synthesis should:
 
 1. **Identify Major Trends**: What are the 3-5 dominant research directions? How are they connected? Reference MULTIPLE papers for each trend to show evidence.
 
@@ -80,25 +134,14 @@ Please write a COMPREHENSIVE, critical synthesis of what someone should have lea
 - Make the synthesis LONGER and more detailed - aim for 2000-3000 words minimum
 - Be comprehensive - you have {len(enriched)} papers to work with, use them!
 
-Format your response as a well-structured synthesis with clear sections using markdown headers (##). Be critical and insightful - this should read like an expert's comprehensive analysis of the entire conference, not a surface-level summary of a few papers.
+Format your response as a well-structured synthesis with clear sections using markdown headers (##). Start with a strong title that mentions {conf_label}, followed by a concise executive summary (5-7 bullet points or short paragraphs) before the deep dive. Be critical and insightful - this should read like an expert's comprehensive analysis of the entire conference, not a surface-level summary of a few papers.
 
 Focus on synthesizing insights across papers rather than listing individual papers, but REFERENCE MANY PAPERS to support your synthesis. Make bold claims when the evidence supports them."""
 
-    # Call Claude to generate synthesis
+    # Call OpenRouter (Gemini 2.5 Flash) to generate synthesis
     try:
-        result = subprocess.run(
-            ['claude', '--print'],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=600  # 10 minutes for comprehensive synthesis
-        )
-
-        if result.returncode != 0:
-            print(f"Error calling Claude: {result.stderr}")
-            return None, {}
-
-        synthesis = result.stdout.strip()
+        agent = OpenRouterSynthesisAgent(model=model, debug=debug)
+        synthesis = agent.generate(prompt)
         print(f"✓ Generated synthesis ({len(synthesis.split())} words)")
 
         # Convert paper references to HTML with tooltips
@@ -106,9 +149,6 @@ Focus on synthesizing insights across papers rather than listing individual pape
 
         return synthesis_html, paper_index
 
-    except subprocess.TimeoutExpired:
-        print("Error: Synthesis generation timed out (>10 minutes)")
-        return None, {}
     except Exception as e:
         print(f"Error generating synthesis: {e}")
         return None, {}
@@ -171,7 +211,7 @@ def convert_synthesis_to_html(text, paper_index):
 
     return '\n\n'.join(html_paragraphs)
 
-def synthesize_conference_summary(enriched_papers_file, output_file):
+def synthesize_conference_summary(enriched_papers_file, output_file, conference_name=None):
     """Generate a critical synthesis of conference research."""
 
     # Load enriched papers
@@ -189,7 +229,7 @@ def synthesize_conference_summary(enriched_papers_file, output_file):
         return
 
     # Generate synthesis
-    synthesis_html, paper_index = generate_synthesis(papers, categories)
+    synthesis_html, paper_index = generate_synthesis(papers, categories, conference_name=conference_name)
 
     if not synthesis_html:
         print("Failed to generate synthesis")

@@ -40,9 +40,28 @@ def analyze_authors(papers, first_last_only=True):
 
     for paper in papers:
         authors = parse_authors(paper['authors'])
-        score = int(paper['score'])
-        relevant = int(paper['relevant_to_users']) if paper['relevant_to_users'] else 0
-        reads = int(paper['read_by_users']) if paper['read_by_users'] else 0
+        # Handle both old format (0-100) and new format (already percentage)
+        score_raw = paper.get('relevance_score', paper.get('score', 0))
+        try:
+            score = float(score_raw)
+        except (ValueError, TypeError):
+            score = 0.0
+
+        # For engagement metrics, use available fields or defaults
+        relevant_raw = paper.get('relevant_to_users', paper.get('liked', 0))
+        if isinstance(relevant_raw, str):
+            relevant = 1 if relevant_raw.lower() in {"true", "1", "yes", "y"} else 0
+        else:
+            try:
+                relevant = int(bool(relevant_raw))
+            except (ValueError, TypeError):
+                relevant = 0
+
+        reads_raw = paper.get('read_by_users', 0)
+        try:
+            reads = int(reads_raw)
+        except (ValueError, TypeError):
+            reads = 0
 
         # Filter to first, second, and last authors if enabled
         if first_last_only and len(authors) > 3:
@@ -180,18 +199,22 @@ def process_single_author(author, index, total):
     author_info = get_author_info_with_claude(author['name'], paper_titles)
 
     if author_info:
-        author['affiliation'] = author_info.get('affiliation', 'Unknown')
-        author['role'] = author_info.get('role', 'Unknown')
+        affiliation = author_info.get('affiliation') or 'Unknown'
+        role = author_info.get('role') or 'Unknown'
+        author['affiliation'] = affiliation
+        author['role'] = role
         author['photo_url'] = author_info.get('photo_url', None)
         author['profile_url'] = author_info.get('profile_url', None)
         photo_status = "📸" if author['photo_url'] else ""
         link_status = "🔗" if author['profile_url'] else ""
+        author['enrichment_status'] = 'success' if (affiliation != 'Unknown' and role != 'Unknown') else 'not_found'
         print(f"  ✓ {author['affiliation']} - {author['role']} {photo_status}{link_status}")
     else:
         author['affiliation'] = 'Unknown'
         author['role'] = 'Unknown'
         author['photo_url'] = None
         author['profile_url'] = None
+        author['enrichment_status'] = 'not_found'
         print(f"  ⚠ Could not find information")
 
     return author
@@ -223,23 +246,30 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
             with open(output_file, 'r', encoding='utf-8') as f:
                 existing_authors = json.load(f)
 
-                # Create lookup by name
+                # Create lookup by name and track which authors were already attempted
+                with_info = 0
+                without_info = 0
                 for author in existing_authors:
                     # Check if author has all required fields (allow empty photo/profile URLs)
                     is_complete = all(field in author for field in REQUIRED_FIELDS)
-                    # Also check that affiliation and role are not 'Unknown' or empty
-                    has_info = (
-                        is_complete and
-                        author.get('affiliation') and
-                        author.get('affiliation') != 'Unknown' and
-                        author.get('role') and
-                        author.get('role') != 'Unknown'
-                    )
+                    if not is_complete:
+                        continue
 
-                    if has_info:
-                        existing_enriched[author['name']] = author
+                    has_affiliation = author.get('affiliation') and author.get('affiliation') != 'Unknown'
+                    has_role = author.get('role') and author.get('role') != 'Unknown'
+                    has_known_info = has_affiliation and has_role
 
-                print(f"📁 Found existing enrichment file with {len(existing_enriched)} fully enriched authors")
+                    if has_known_info:
+                        author.setdefault('enrichment_status', 'success')
+                        with_info += 1
+                    else:
+                        # Mark as already attempted but unresolved so we can skip on retries
+                        author['enrichment_status'] = author.get('enrichment_status', 'not_found')
+                        without_info += 1
+
+                    existing_enriched[author['name']] = author
+
+                print(f"📁 Found existing enrichment file with {len(existing_enriched)} processed authors ({with_info} with info, {without_info} marked not found)")
         except Exception as e:
             print(f"⚠ Could not load existing enrichment: {e}")
 
@@ -266,7 +296,12 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
             # Author needs enrichment
             authors_to_enrich.append(author)
 
-    print(f"✓ {len(already_enriched_authors)} authors fully enriched (skipping)")
+    skipped_not_found = sum(1 for a in already_enriched_authors if a.get('enrichment_status') == 'not_found')
+    skipped_with_info = len(already_enriched_authors) - skipped_not_found
+
+    print(f"✓ {skipped_with_info} authors fully enriched (skipping)")
+    if skipped_not_found:
+        print(f"✓ {skipped_not_found} authors previously attempted but unresolved (skipping)")
     print(f"→ {len(authors_to_enrich)} authors to enrich\n")
 
     if len(authors_to_enrich) == 0:
@@ -310,6 +345,7 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
                 author['role'] = 'Unknown'
                 author['photo_url'] = None
                 author['profile_url'] = None
+                author['enrichment_status'] = 'not_found'
                 newly_enriched_authors.append(author)
 
             # Save progress every 3 authors

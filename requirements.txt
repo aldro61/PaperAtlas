@@ -2,3 +2,9 @@
 # Install with: pip install -r requirements.txt
 
 beautifulsoup4>=4.12.0
+flask>=3.0.0
+playwright>=1.48.0
+tqdm>=4.67.0
+openai>=2.0.0
+requests>=2.31.0
+PyMuPDF>=1.24.0  # For PDF parsing in paper enrichment
