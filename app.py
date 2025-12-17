@@ -1584,8 +1584,8 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
         session.current_step = 'authors'
         session.log('Starting author enrichment...')
 
-        # Load existing enriched authors if not already loaded (for fresh extractions)
-        if not existing_enriched and os.path.exists(authors_file):
+        # Load existing enriched authors only if reuse is enabled
+        if reuse_existing and not existing_enriched and os.path.exists(authors_file):
             try:
                 with open(authors_file, 'r', encoding='utf-8') as f:
                     existing_authors = json.load(f)
@@ -1723,10 +1723,10 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
         # Required fields for a complete paper enrichment
         PAPER_REQUIRED_FIELDS = ['key_findings', 'description', 'key_contribution', 'novelty', 'ai_categories']
 
-        # Load existing enriched papers if available
+        # Load existing enriched papers only if reuse is enabled
         existing_enriched_papers = {}
         existing_categories = []
-        if os.path.exists(papers_enrichment_file):
+        if reuse_existing and os.path.exists(papers_enrichment_file):
             try:
                 with open(papers_enrichment_file, 'r', encoding='utf-8') as f:
                     existing_data = json.load(f)
