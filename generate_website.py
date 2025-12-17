@@ -465,6 +465,10 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
         mixed_pattern = r'\[(Paper \d+(?:,\s*\d+)+)\]'
         html_content = re.sub(mixed_pattern, replace_mixed_ref, html_content)
 
+        # Handle "Papers" plural format like [Papers 13, 111, 179, 308]
+        papers_plural_pattern = r'\[Papers (\d+(?:,\s*\d+)+)\]'
+        html_content = re.sub(papers_plural_pattern, replace_mixed_ref, html_content)
+
         # Handle single [Paper X] in brackets
         single_pattern = r'\[Paper (\d+)\]'
         html_content = re.sub(single_pattern, lambda m: make_paper_link(m.group(1)), html_content)

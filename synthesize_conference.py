@@ -225,6 +225,10 @@ def convert_synthesis_to_html(text, paper_index):
     mixed_pattern = r'\[(Paper \d+(?:,\s*\d+)+)\]'
     text = re.sub(mixed_pattern, replace_mixed_ref, text)
 
+    # Handle "Papers" plural format like [Papers 13, 111, 179, 308]
+    papers_plural_pattern = r'\[Papers (\d+(?:,\s*\d+)+)\]'
+    text = re.sub(papers_plural_pattern, replace_mixed_ref, text)
+
     # Then, handle single [Paper X] in brackets
     text = re.sub(r'\[Paper (\d+)\]', replace_single_paper_ref, text)
 
