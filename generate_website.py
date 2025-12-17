@@ -1891,67 +1891,22 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
 if __name__ == "__main__":
     import argparse
-    import glob
 
     parser = argparse.ArgumentParser(description='Generate HTML website from conference data')
-    parser.add_argument('--stem', '-s', help='Conference stem (e.g., "neurips2025") to auto-detect files')
-    parser.add_argument('--csv', help='Path to papers CSV file')
-    parser.add_argument('--authors', help='Path to enriched authors JSON file')
-    parser.add_argument('--papers', help='Path to enriched papers JSON file')
-    parser.add_argument('--synthesis', help='Path to pre-generated synthesis HTML/MD file')
-    parser.add_argument('--output', '-o', help='Output HTML file path')
+    parser.add_argument('--csv', required=True, help='Path to papers CSV file')
+    parser.add_argument('--papers', required=True, help='Path to enriched papers JSON file')
+    parser.add_argument('--authors', required=True, help='Path to enriched authors JSON file')
+    parser.add_argument('--synthesis', help='Path to synthesis HTML file')
+    parser.add_argument('--output', '-o', required=True, help='Output HTML file path')
 
     args = parser.parse_args()
 
-    # If stem is provided, use convention-based filenames
-    if args.stem:
-        stem = args.stem
-        csv_file = args.csv or f'{stem}_papers.csv'
-        enriched_authors_file = args.authors or f'{stem}_enriched_authors.json'
-        # Find enriched papers file (format: {stem}_enriched_papers_{model}.json)
-        if args.papers:
-            enriched_papers_file = args.papers
-        else:
-            enriched_candidates = sorted(glob.glob(f'{stem}_enriched_papers_*.json'), key=os.path.getmtime, reverse=True)
-            enriched_papers_file = enriched_candidates[0] if enriched_candidates else f'{stem}_enriched_papers.json'
-        output_file = args.output or f'{stem}_website.html'
-        synth_candidates = sorted(glob.glob(f'{stem}_synthesis*.html'), key=os.path.getmtime, reverse=True)
-        synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
-    # Auto-detect: look for *_enriched_papers_*.json files
-    elif not args.csv and not args.papers:
-        enriched_files = glob.glob('*_enriched_papers_*.json')
-        if enriched_files:
-            # Use the most recently modified one
-            enriched_papers_file = max(enriched_files, key=os.path.getmtime)
-            stem_match = re.match(r'(.+)_enriched_papers_.*\.json$', enriched_papers_file)
-            stem = stem_match.group(1) if stem_match else enriched_papers_file.replace('.json', '')
-            csv_file = f'{stem}_papers.csv'
-            enriched_authors_file = f'{stem}_enriched_authors.json'
-            output_file = args.output or f'{stem}_website.html'
-            synth_candidates = sorted(glob.glob(f'{stem}_synthesis*.html'), key=os.path.getmtime, reverse=True)
-            synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
-            print(f"Auto-detected conference: {stem}")
-        else:
-            # Fall back to generic names
-            csv_file = "papers.csv"
-            enriched_authors_file = "enriched_authors.json"
-            enriched_papers_file = "enriched_papers.json"
-            output_file = args.output or "index.html"
-            synthesis_file = args.synthesis
-    else:
-        # Use explicit arguments or defaults
-        csv_file = args.csv or "papers.csv"
-        enriched_authors_file = args.authors or "enriched_authors.json"
-        enriched_papers_file = args.papers or "enriched_papers.json"
-        output_file = args.output or "index.html"
-        synthesis_file = args.synthesis
-
     print(f"Input files:")
-    print(f"  CSV: {csv_file}")
-    print(f"  Enriched papers: {enriched_papers_file}")
-    print(f"  Enriched authors: {enriched_authors_file}")
-    print(f"  Synthesis: {synthesis_file or 'auto'}")
-    print(f"Output: {output_file}")
+    print(f"  CSV: {args.csv}")
+    print(f"  Enriched papers: {args.papers}")
+    print(f"  Enriched authors: {args.authors}")
+    print(f"  Synthesis: {args.synthesis or 'none'}")
+    print(f"Output: {args.output}")
     print()
 
-    generate_website(csv_file, output_file, enriched_authors_file, enriched_papers_file, synthesis_file=synthesis_file)
+    generate_website(args.csv, args.output, args.authors, args.papers, synthesis_file=args.synthesis)
