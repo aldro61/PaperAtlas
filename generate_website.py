@@ -1898,16 +1898,8 @@ if __name__ == "__main__":
     parser.add_argument('--csv', help='Path to papers CSV file')
     parser.add_argument('--authors', help='Path to enriched authors JSON file')
     parser.add_argument('--papers', help='Path to enriched papers JSON file')
-    parser.add_argument('--paper-model', help='Paper enrichment model (e.g., "google/gemini-2.5-flash") to select the correct enriched papers file')
     parser.add_argument('--synthesis', help='Path to pre-generated synthesis HTML/MD file')
     parser.add_argument('--output', '-o', help='Output HTML file path')
-
-    def model_slug(model_id):
-        """Return a safe slug for model IDs to embed in filenames."""
-        if not model_id:
-            return None
-        slug = re.sub(r'[^a-zA-Z0-9]+', '-', model_id).strip('-').lower()
-        return slug or None
 
     args = parser.parse_args()
 
@@ -1916,66 +1908,17 @@ if __name__ == "__main__":
         stem = args.stem
         csv_file = args.csv or f'{stem}_papers.csv'
         enriched_authors_file = args.authors or f'{stem}_enriched_authors.json'
-        # Build enriched papers filename with model slug
-        if args.papers:
-            enriched_papers_file = args.papers
-        else:
-            paper_model_slug = model_slug(getattr(args, 'paper_model', None))
-            if paper_model_slug:
-                enriched_papers_file = f'{stem}_enriched_papers_{paper_model_slug}.json'
-            else:
-                # No model specified - find available files and prompt user
-                enriched_candidates = sorted(glob.glob(f'{stem}_enriched_papers_*.json'), key=os.path.getmtime, reverse=True)
-                if len(enriched_candidates) == 1:
-                    enriched_papers_file = enriched_candidates[0]
-                elif len(enriched_candidates) > 1:
-                    print(f"Multiple enriched papers files found:")
-                    for f in enriched_candidates:
-                        print(f"  - {f}")
-                    print(f"Please specify which one to use with --papers or --paper-model")
-                    sys.exit(1)
-                else:
-                    print(f"No enriched papers file found matching pattern: {stem}_enriched_papers_*.json")
-                    print(f"Please specify with --papers or --paper-model")
-                    sys.exit(1)
+        enriched_papers_file = args.papers or f'{stem}_enriched_papers.json'
         output_file = args.output or f'{stem}_website.html'
         synth_candidates = sorted(glob.glob(f'{stem}_synthesis*.html'), key=os.path.getmtime, reverse=True)
         synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
-    # Auto-detect: look for *_enriched_papers_*.json files
+    # Auto-detect: look for *_enriched_papers.json files
     elif not args.csv and not args.papers:
-        enriched_files = glob.glob('*_enriched_papers_*.json')
+        enriched_files = glob.glob('*_enriched_papers.json')
         if enriched_files:
-            if len(enriched_files) == 1:
-                enriched_papers_file = enriched_files[0]
-            else:
-                # Multiple files - check if user specified a model
-                paper_model_slug = model_slug(getattr(args, 'paper_model', None))
-                if paper_model_slug:
-                    # Filter to matching model
-                    matching = [f for f in enriched_files if f'_enriched_papers_{paper_model_slug}.json' in f]
-                    if len(matching) == 1:
-                        enriched_papers_file = matching[0]
-                    elif len(matching) > 1:
-                        print(f"Multiple enriched papers files found for model '{args.paper_model}':")
-                        for f in matching:
-                            print(f"  - {f}")
-                        print(f"Please specify with --papers")
-                        sys.exit(1)
-                    else:
-                        print(f"No enriched papers file found for model '{args.paper_model}'")
-                        print(f"Available files:")
-                        for f in enriched_files:
-                            print(f"  - {f}")
-                        sys.exit(1)
-                else:
-                    print(f"Multiple enriched papers files found:")
-                    for f in enriched_files:
-                        print(f"  - {f}")
-                    print(f"Please specify which one to use with --papers or --paper-model")
-                    sys.exit(1)
-            # Extract stem by removing _enriched_papers_*.json suffix
-            stem_match = re.match(r'(.+)_enriched_papers_.*\.json$', enriched_papers_file)
-            stem = stem_match.group(1) if stem_match else enriched_papers_file.replace('.json', '')
+            # Use the most recently modified one
+            enriched_papers_file = max(enriched_files, key=os.path.getmtime)
+            stem = enriched_papers_file.replace('_enriched_papers.json', '')
             csv_file = f'{stem}_papers.csv'
             enriched_authors_file = f'{stem}_enriched_authors.json'
             output_file = args.output or f'{stem}_website.html'
@@ -1983,18 +1926,17 @@ if __name__ == "__main__":
             synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
             print(f"Auto-detected conference: {stem}")
         else:
-            print("No enriched papers files found matching pattern: *_enriched_papers_*.json")
-            print("Please specify with --papers or run paper enrichment first")
-            sys.exit(1)
+            # Fall back to generic names
+            csv_file = "papers.csv"
+            enriched_authors_file = "enriched_authors.json"
+            enriched_papers_file = "enriched_papers.json"
+            output_file = args.output or "index.html"
+            synthesis_file = args.synthesis
     else:
-        # Use explicit arguments
+        # Use explicit arguments or defaults
         csv_file = args.csv or "papers.csv"
         enriched_authors_file = args.authors or "enriched_authors.json"
-        if not args.papers:
-            print("Error: --papers is required when using --csv without --stem")
-            print("Please specify the enriched papers file with --papers")
-            sys.exit(1)
-        enriched_papers_file = args.papers
+        enriched_papers_file = args.papers or "enriched_papers.json"
         output_file = args.output or "index.html"
         synthesis_file = args.synthesis
 
