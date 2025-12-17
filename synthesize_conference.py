@@ -181,14 +181,15 @@ def convert_synthesis_to_html(text, paper_index):
             title = info['title'].replace('"', '&quot;').replace("'", '&#39;')
             score = info.get('score', 'N/A')
             categories = ', '.join(info.get('categories', []))
+            pdf_url = info.get('pdf_url', '')
 
-            tooltip_html = f"{title}"
-
-            return f'<span class="paper-ref" data-paper-id="{paper_num}" data-tooltip="{tooltip_html}">[Paper {paper_num}]</span>'
+            # Store data attributes for JavaScript tooltip and PDF link
+            pdf_attr = f' data-pdf-url="{pdf_url}"' if pdf_url else ''
+            return f'<a class="paper-ref" href="{pdf_url}" target="_blank" data-paper-id="{paper_num}" data-title="{title}" data-score="{score}" data-categories="{categories}"{pdf_attr}>[Paper {paper_num}]</a>'
         else:
             missing_papers.append(paper_num)
-            # Still make it look like a reference but with a warning tooltip
-            return f'<span class="paper-ref" style="color: #ff6b6b;" data-tooltip="⚠️ Paper {paper_num} not found in index">[Paper {paper_num}]</span>'
+            # Still make it look like a reference but with a warning style
+            return f'<span class="paper-ref paper-ref-missing" data-paper-id="{paper_num}">[Paper {paper_num}]</span>'
 
     text = re.sub(r'\[Paper (\d+)\]', replace_paper_ref, text)
 
