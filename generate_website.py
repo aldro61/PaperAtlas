@@ -1908,17 +1908,32 @@ if __name__ == "__main__":
         stem = args.stem
         csv_file = args.csv or f'{stem}_papers.csv'
         enriched_authors_file = args.authors or f'{stem}_enriched_authors.json'
-        enriched_papers_file = args.papers or f'{stem}_enriched_papers.json'
+        # Look for enriched papers file with model slug (e.g., stem_enriched_papers_gemini-2.5-flash.json)
+        if args.papers:
+            enriched_papers_file = args.papers
+        else:
+            enriched_candidates = sorted(glob.glob(f'{stem}_enriched_papers_*.json'), key=os.path.getmtime, reverse=True)
+            if enriched_candidates:
+                enriched_papers_file = enriched_candidates[0]
+            else:
+                # Fall back to legacy filename without model slug
+                enriched_papers_file = f'{stem}_enriched_papers.json'
         output_file = args.output or f'{stem}_website.html'
         synth_candidates = sorted(glob.glob(f'{stem}_synthesis*.html'), key=os.path.getmtime, reverse=True)
         synthesis_file = args.synthesis or (synth_candidates[0] if synth_candidates else None)
-    # Auto-detect: look for *_enriched_papers.json files
+    # Auto-detect: look for *_enriched_papers*.json files (with or without model slug)
     elif not args.csv and not args.papers:
-        enriched_files = glob.glob('*_enriched_papers.json')
+        # First try files with model slug (new format: *_enriched_papers_*.json)
+        enriched_files = glob.glob('*_enriched_papers_*.json')
+        if not enriched_files:
+            # Fall back to legacy format (*_enriched_papers.json)
+            enriched_files = glob.glob('*_enriched_papers.json')
         if enriched_files:
             # Use the most recently modified one
             enriched_papers_file = max(enriched_files, key=os.path.getmtime)
-            stem = enriched_papers_file.replace('_enriched_papers.json', '')
+            # Extract stem by removing _enriched_papers*.json suffix
+            stem_match = re.match(r'(.+)_enriched_papers.*\.json$', enriched_papers_file)
+            stem = stem_match.group(1) if stem_match else enriched_papers_file.replace('.json', '')
             csv_file = f'{stem}_papers.csv'
             enriched_authors_file = f'{stem}_enriched_authors.json'
             output_file = args.output or f'{stem}_website.html'

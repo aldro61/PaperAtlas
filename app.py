@@ -1712,7 +1712,11 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
             # Don't fail the whole extraction if author enrichment fails
 
         # Step 6: Enrich Papers (supports partial enrichment from previous runs)
-        papers_enrichment_file = output_files['enriched_papers']
+        # Include model slug in filename for traceability (like synthesis files)
+        papers_enrichment_file = os.path.join(
+            os.path.dirname(output_file),
+            f'{output_files["stem"]}_enriched_papers_{model_slug(model_config["paper_model"])}.json'
+        )
         session.current_step = 'papers_enrichment'
         session.log('Starting paper enrichment...')
 
