@@ -414,10 +414,8 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
         """Upgrade old-format paper references to new format with clickable PDF links."""
         import re
 
-        def replace_old_ref(match):
-            paper_id = match.group(1)
-            tooltip = match.group(2)  # This is just the title in old format
-
+        def make_paper_link(paper_id):
+            """Create a paper link for a given paper ID."""
             if paper_id in paper_titles:
                 info = paper_titles[paper_id]
                 title = info['title'].replace('"', '&quot;').replace("'", '&#39;')
@@ -427,11 +425,37 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
                 pdf_attr = f' data-pdf-url="{pdf_url}"' if pdf_url else ''
                 return f'<a class="paper-ref" href="{pdf_url}" target="_blank" data-paper-id="{paper_id}" data-title="{title}" data-score="{score}" data-categories="{categories}"{pdf_attr}>[Paper {paper_id}]</a>'
-            return match.group(0)  # Return unchanged if paper not found
+            return f'[Paper {paper_id}]'  # Return plain text if paper not found
 
-        # Match old format: <span class="paper-ref" data-paper-id="X" data-tooltip="...">
+        def replace_old_ref(match):
+            paper_id = match.group(1)
+            return make_paper_link(paper_id)
+
+        def replace_multi_paper_ref(match):
+            """Handle [Paper X, Paper Y, Paper Z] patterns."""
+            content = match.group(1)
+            # Extract all paper numbers
+            paper_nums = re.findall(r'Paper (\d+)', content)
+            if not paper_nums:
+                return match.group(0)
+            # Create links for each paper
+            links = [make_paper_link(num) for num in paper_nums]
+            return '[' + ', '.join(links) + ']'
+
+        # First, handle old format: <span class="paper-ref" data-paper-id="X" data-tooltip="...">
         pattern = r'<span class="paper-ref" data-paper-id="(\d+)" data-tooltip="([^"]*)">\[Paper \d+\]</span>'
-        return re.sub(pattern, replace_old_ref, html_content)
+        html_content = re.sub(pattern, replace_old_ref, html_content)
+
+        # Then, handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
+        # Match brackets containing multiple "Paper X" references
+        multi_pattern = r'\[(Paper \d+(?:,\s*Paper \d+)+)\]'
+        html_content = re.sub(multi_pattern, replace_multi_paper_ref, html_content)
+
+        # Finally, handle any remaining single [Paper X] that weren't converted
+        single_pattern = r'\[Paper (\d+)\]'
+        html_content = re.sub(single_pattern, lambda m: make_paper_link(m.group(1)), html_content)
+
+        return html_content
 
     def load_html(path):
         nonlocal synthesis_text

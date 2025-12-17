@@ -174,8 +174,8 @@ def convert_synthesis_to_html(text, paper_index):
     # Convert paper references [Paper X] to interactive tooltips
     missing_papers = []
 
-    def replace_paper_ref(match):
-        paper_num = int(match.group(1))
+    def make_paper_link(paper_num):
+        """Create a paper link for a given paper number."""
         if paper_num in paper_index:
             info = paper_index[paper_num]
             title = info['title'].replace('"', '&quot;').replace("'", '&#39;')
@@ -191,10 +191,30 @@ def convert_synthesis_to_html(text, paper_index):
             # Still make it look like a reference but with a warning style
             return f'<span class="paper-ref paper-ref-missing" data-paper-id="{paper_num}">[Paper {paper_num}]</span>'
 
-    text = re.sub(r'\[Paper (\d+)\]', replace_paper_ref, text)
+    def replace_single_paper_ref(match):
+        paper_num = int(match.group(1))
+        return make_paper_link(paper_num)
+
+    def replace_multi_paper_ref(match):
+        """Handle [Paper X, Paper Y, Paper Z] patterns."""
+        content = match.group(1)
+        # Extract all paper numbers
+        paper_nums = [int(n) for n in re.findall(r'Paper (\d+)', content)]
+        if not paper_nums:
+            return match.group(0)
+        # Create links for each paper
+        links = [make_paper_link(num) for num in paper_nums]
+        return '[' + ', '.join(links) + ']'
+
+    # First, handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
+    multi_pattern = r'\[(Paper \d+(?:,\s*Paper \d+)+)\]'
+    text = re.sub(multi_pattern, replace_multi_paper_ref, text)
+
+    # Then, handle remaining single [Paper X] references
+    text = re.sub(r'\[Paper (\d+)\]', replace_single_paper_ref, text)
 
     if missing_papers:
-        print(f"⚠️  Warning: {len(missing_papers)} paper references not found in index: {sorted(set(missing_papers))}")
+        print(f"⚠️  Warning: {len(set(missing_papers))} paper references not found in index: {sorted(set(missing_papers))}")
 
     # Convert paragraphs (double newline)
     paragraphs = text.split('\n\n')
