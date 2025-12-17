@@ -206,12 +206,32 @@ def convert_synthesis_to_html(text, paper_index):
         links = [make_paper_link(num) for num in paper_nums]
         return '[' + ', '.join(links) + ']'
 
+    def replace_mixed_ref(match):
+        """Handle [Paper X, Y, Z] patterns where only first has 'Paper' prefix."""
+        content = match.group(1)
+        # Extract all numbers (first one after "Paper", rest are just numbers)
+        paper_nums = [int(n) for n in re.findall(r'\d+', content)]
+        if not paper_nums:
+            return match.group(0)
+        # Create links for each paper
+        links = [make_paper_link(num) for num in paper_nums]
+        return '[' + ', '.join(links) + ']'
+
     # First, handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
     multi_pattern = r'\[(Paper \d+(?:,\s*Paper \d+)+)\]'
     text = re.sub(multi_pattern, replace_multi_paper_ref, text)
 
-    # Then, handle remaining single [Paper X] references
+    # Handle mixed format like [Paper 2, 19, 24, 92] where only first has "Paper"
+    mixed_pattern = r'\[(Paper \d+(?:,\s*\d+)+)\]'
+    text = re.sub(mixed_pattern, replace_mixed_ref, text)
+
+    # Then, handle single [Paper X] in brackets
     text = re.sub(r'\[Paper (\d+)\]', replace_single_paper_ref, text)
+
+    # Finally, handle unbracketed "Paper X" references
+    # Use negative lookbehind/lookahead to skip already converted refs
+    unbracketed_pattern = r'(?<!data-paper-id=")(?<!">)(?<!\[)Paper (\d+)(?!\])'
+    text = re.sub(unbracketed_pattern, replace_single_paper_ref, text)
 
     if missing_papers:
         print(f"⚠️  Warning: {len(set(missing_papers))} paper references not found in index: {sorted(set(missing_papers))}")

@@ -442,18 +442,37 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             links = [make_paper_link(num) for num in paper_nums]
             return '[' + ', '.join(links) + ']'
 
+        def replace_mixed_ref(match):
+            """Handle [Paper X, Y, Z] patterns where only first has 'Paper' prefix."""
+            content = match.group(1)
+            # Extract all numbers (first one after "Paper", rest are just numbers)
+            paper_nums = re.findall(r'\d+', content)
+            if not paper_nums:
+                return match.group(0)
+            # Create links for each paper
+            links = [make_paper_link(num) for num in paper_nums]
+            return '[' + ', '.join(links) + ']'
+
         # First, handle old format: <span class="paper-ref" data-paper-id="X" data-tooltip="...">
         pattern = r'<span class="paper-ref" data-paper-id="(\d+)" data-tooltip="([^"]*)">\[Paper \d+\]</span>'
         html_content = re.sub(pattern, replace_old_ref, html_content)
 
-        # Then, handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
-        # Match brackets containing multiple "Paper X" references
+        # Handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
         multi_pattern = r'\[(Paper \d+(?:,\s*Paper \d+)+)\]'
         html_content = re.sub(multi_pattern, replace_multi_paper_ref, html_content)
 
-        # Finally, handle any remaining single [Paper X] that weren't converted
+        # Handle mixed format like [Paper 2, 19, 24, 92] where only first has "Paper"
+        mixed_pattern = r'\[(Paper \d+(?:,\s*\d+)+)\]'
+        html_content = re.sub(mixed_pattern, replace_mixed_ref, html_content)
+
+        # Handle single [Paper X] in brackets
         single_pattern = r'\[Paper (\d+)\]'
         html_content = re.sub(single_pattern, lambda m: make_paper_link(m.group(1)), html_content)
+
+        # Finally, handle unbracketed "Paper X" references (but not already converted ones)
+        # Use negative lookbehind/lookahead to skip already converted refs
+        unbracketed_pattern = r'(?<!data-paper-id=")(?<!">)(?<!\[)Paper (\d+)(?!\])'
+        html_content = re.sub(unbracketed_pattern, lambda m: make_paper_link(m.group(1)), html_content)
 
         return html_content
 
