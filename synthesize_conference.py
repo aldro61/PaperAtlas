@@ -166,7 +166,9 @@ Focus on synthesizing insights across papers rather than listing individual pape
         return synthesis_html, paper_index
 
     except Exception as e:
+        import traceback
         print(f"Error generating synthesis: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
         return None, {}
 
 def convert_synthesis_to_html(text, paper_index):
@@ -279,8 +281,8 @@ def synthesize_conference_summary(enriched_papers_file, output_file, conference_
         print(f"Error: Could not find {enriched_papers_file}")
         print("Please run paper enrichment first: python enrich_papers.py")
         return
-    except Exception as e:
-        print(f"Error loading enriched papers: {e}")
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in {enriched_papers_file}: {e}")
         return
 
     # Generate synthesis

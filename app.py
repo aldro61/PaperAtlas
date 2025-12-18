@@ -1268,7 +1268,7 @@ def check_dependencies():
     def get_mtime(path):
         try:
             return os.path.getmtime(path)
-        except Exception:
+        except OSError:
             return None
 
     paper_mtime = get_mtime(output_files['papers']) if papers_exists else None
@@ -1280,10 +1280,7 @@ def check_dependencies():
             reuse_timestamp = datetime.fromtimestamp(oldest).isoformat()
 
     # Check OpenRouter API key (reusing field name for UI)
-    try:
-        openrouter_api = os.environ.get("OPENROUTER_API_KEY") is not None
-    except Exception:
-        openrouter_api = False
+    openrouter_api = os.environ.get("OPENROUTER_API_KEY") is not None
 
     # Check Playwright
     try:
