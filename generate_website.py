@@ -10,6 +10,22 @@ import os
 import re
 import sys
 
+# Pre-compiled regex patterns for markdown to HTML conversion
+RE_HEADER_H3 = re.compile(r'^### (.+)$', re.MULTILINE)
+RE_HEADER_H2 = re.compile(r'^## (.+)$', re.MULTILINE)
+RE_HEADER_H1 = re.compile(r'^# (.+)$', re.MULTILINE)
+RE_BOLD = re.compile(r'\*\*(.+?)\*\*')
+RE_ITALIC = re.compile(r'\*(.+?)\*')
+RE_LINK = re.compile(r'\[([^\]]+)\]\(([^\)]+)\)')
+RE_SINGLE_PAPER = re.compile(r'\[Paper (\d+)\]')
+RE_PAPER_NUM = re.compile(r'Paper (\d+)')
+RE_DIGIT = re.compile(r'\d+')
+RE_OLD_PAPER_REF = re.compile(r'<span class="paper-ref" data-paper-id="(\d+)" data-tooltip="([^"]*)">\[Paper \d+\]</span>')
+RE_MULTI_PAPER = re.compile(r'\[(Paper \d+(?:,\s*Paper \d+)+)\]')
+RE_MIXED_PAPER = re.compile(r'\[(Paper \d+(?:,\s*\d+)+)\]')
+RE_PAPERS_PLURAL = re.compile(r'\[Papers (\d+(?:,\s*\d+)+)\]')
+RE_UNBRACKETED_PAPER = re.compile(r'(?<!data-paper-id=")(?<!">)(?<!\[)Paper (\d+)(?!\])')
+
 # Import synthesis generation and shared utilities
 sys.path.append(os.path.dirname(__file__))
 from config import HIGHLY_RELEVANT_THRESHOLD
@@ -31,18 +47,18 @@ def markdown_to_html(text, paper_titles=None):
         return ""
 
     # Convert headers
-    text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-    text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
-    text = re.sub(r'^# (.+)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
+    text = RE_HEADER_H3.sub(r'<h3>\1</h3>', text)
+    text = RE_HEADER_H2.sub(r'<h2>\1</h2>', text)
+    text = RE_HEADER_H1.sub(r'<h1>\1</h1>', text)
 
     # Convert bold
-    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    text = RE_BOLD.sub(r'<strong>\1</strong>', text)
 
     # Convert italic
-    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+    text = RE_ITALIC.sub(r'<em>\1</em>', text)
 
     # Convert links [text](url)
-    text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', text)
+    text = RE_LINK.sub(r'<a href="\2">\1</a>', text)
 
     # Convert paper references [Paper X] to interactive tooltips with PDF links
     if paper_titles:
@@ -60,7 +76,7 @@ def markdown_to_html(text, paper_titles=None):
                 return f'<a class="paper-ref" href="{pdf_url}" target="_blank" data-paper-id="{paper_num}" data-title="{title}" data-score="{score}" data-categories="{categories}"{pdf_attr}>[Paper {paper_num}]</a>'
             return match.group(0)
 
-        text = re.sub(r'\[Paper (\d+)\]', replace_paper_ref, text)
+        text = RE_SINGLE_PAPER.sub(replace_paper_ref, text)
 
     # Convert paragraphs (double newline)
     paragraphs = text.split('\n\n')
@@ -340,7 +356,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             """Handle [Paper X, Paper Y, Paper Z] patterns."""
             content = match.group(1)
             # Extract all paper numbers
-            paper_nums = re.findall(r'Paper (\d+)', content)
+            paper_nums = RE_PAPER_NUM.findall(content)
             if not paper_nums:
                 return match.group(0)
             # Create links for each paper
@@ -351,7 +367,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             """Handle [Paper X, Y, Z] patterns where only first has 'Paper' prefix."""
             content = match.group(1)
             # Extract all numbers (first one after "Paper", rest are just numbers)
-            paper_nums = re.findall(r'\d+', content)
+            paper_nums = RE_DIGIT.findall(content)
             if not paper_nums:
                 return match.group(0)
             # Create links for each paper
@@ -359,29 +375,23 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             return '[' + ', '.join(links) + ']'
 
         # First, handle old format: <span class="paper-ref" data-paper-id="X" data-tooltip="...">
-        pattern = r'<span class="paper-ref" data-paper-id="(\d+)" data-tooltip="([^"]*)">\[Paper \d+\]</span>'
-        html_content = re.sub(pattern, replace_old_ref, html_content)
+        html_content = RE_OLD_PAPER_REF.sub(replace_old_ref, html_content)
 
         # Handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
-        multi_pattern = r'\[(Paper \d+(?:,\s*Paper \d+)+)\]'
-        html_content = re.sub(multi_pattern, replace_multi_paper_ref, html_content)
+        html_content = RE_MULTI_PAPER.sub(replace_multi_paper_ref, html_content)
 
         # Handle mixed format like [Paper 2, 19, 24, 92] where only first has "Paper"
-        mixed_pattern = r'\[(Paper \d+(?:,\s*\d+)+)\]'
-        html_content = re.sub(mixed_pattern, replace_mixed_ref, html_content)
+        html_content = RE_MIXED_PAPER.sub(replace_mixed_ref, html_content)
 
         # Handle "Papers" plural format like [Papers 13, 111, 179, 308]
-        papers_plural_pattern = r'\[Papers (\d+(?:,\s*\d+)+)\]'
-        html_content = re.sub(papers_plural_pattern, replace_mixed_ref, html_content)
+        html_content = RE_PAPERS_PLURAL.sub(replace_mixed_ref, html_content)
 
         # Handle single [Paper X] in brackets
-        single_pattern = r'\[Paper (\d+)\]'
-        html_content = re.sub(single_pattern, lambda m: make_paper_link(m.group(1)), html_content)
+        html_content = RE_SINGLE_PAPER.sub(lambda m: make_paper_link(m.group(1)), html_content)
 
         # Finally, handle unbracketed "Paper X" references (but not already converted ones)
         # Use negative lookbehind/lookahead to skip already converted refs
-        unbracketed_pattern = r'(?<!data-paper-id=")(?<!">)(?<!\[)Paper (\d+)(?!\])'
-        html_content = re.sub(unbracketed_pattern, lambda m: make_paper_link(m.group(1)), html_content)
+        html_content = RE_UNBRACKETED_PAPER.sub(lambda m: make_paper_link(m.group(1)), html_content)
 
         return html_content
 
