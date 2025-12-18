@@ -13,6 +13,13 @@ from io import BytesIO
 
 from openai import OpenAI
 
+from config import (
+    DEFAULT_PAPER_MODEL,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_HTTP_REFERER,
+    OPENROUTER_APP_TITLE,
+)
+
 # Gemini 2.5 Flash context limit (1M tokens ~ roughly 4M chars)
 MAX_CONTEXT_CHARS = 1_000_000  # ~25% of context, leaving room for prompt and response
 
@@ -69,29 +76,24 @@ class OpenRouterPaperEnrichmentAgent:
 
         Args:
             api_key: OpenRouter API key (falls back to OPENROUTER_API_KEY env var)
-            model: Model to use (falls back to OPENROUTER_PAPER_MODEL env var, then 'google/gemini-2.5-flash')
+            model: Model to use (default from config)
             debug: Enable debug output
         """
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable.")
 
-        base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-
-        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://github.com/aldro61/PaperAtlas")
-        app_title = os.environ.get("OPENROUTER_APP_TITLE", "PaperAtlas Paper Enrichment")
         default_headers = {k: v for k, v in {
-            "HTTP-Referer": referer,
-            "X-Title": app_title,
+            "HTTP-Referer": OPENROUTER_HTTP_REFERER,
+            "X-Title": OPENROUTER_APP_TITLE,
         }.items() if v}
 
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=base_url,
+            base_url=OPENROUTER_BASE_URL,
             default_headers=default_headers,
         )
-        # Use Gemini 2.5 Flash for paper enrichment (1M token context)
-        self.model = model or os.environ.get("OPENROUTER_PAPER_MODEL", "google/gemini-2.5-flash")
+        self.model = model or DEFAULT_PAPER_MODEL
         self.debug = debug
 
     def enrich_paper(

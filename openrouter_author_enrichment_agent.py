@@ -10,6 +10,13 @@ from typing import Optional, Dict, Any
 
 from openai import OpenAI, APITimeoutError
 
+from config import (
+    DEFAULT_AUTHOR_MODEL,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_HTTP_REFERER,
+    OPENROUTER_APP_TITLE,
+)
+
 
 class OpenRouterAuthorEnrichmentAgent:
     """Agent that uses OpenRouter (GPT-5-mini) with web search to enrich author information."""
@@ -19,31 +26,25 @@ class OpenRouterAuthorEnrichmentAgent:
 
         Args:
             api_key: OpenRouter API key (falls back to OPENROUTER_API_KEY env var)
-            model: Model to use (falls back to OPENROUTER_MODEL env var, then 'openai/gpt-4.1-nano')
+            model: Model to use (default from config)
             debug: Enable debug output
         """
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable.")
 
-        base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-
-        # OpenRouter asks for HTTP-Referer and X-Title headers; keep sensible defaults but allow overrides.
-        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://github.com/aldro61/PaperAtlas")
-        app_title = os.environ.get("OPENROUTER_APP_TITLE", "PaperAtlas Author Enrichment")
         default_headers = {k: v for k, v in {
-            "HTTP-Referer": referer,
-            "X-Title": app_title,
+            "HTTP-Referer": OPENROUTER_HTTP_REFERER,
+            "X-Title": OPENROUTER_APP_TITLE,
         }.items() if v}
 
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=base_url,
+            base_url=OPENROUTER_BASE_URL,
             default_headers=default_headers,
             timeout=30.0,  # 30 second timeout for author enrichment
         )
-        # OpenRouter models generally include the provider prefix; keep override env var if a different route is desired.
-        self.model = model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-nano")
+        self.model = model or DEFAULT_AUTHOR_MODEL
         self.debug = debug
 
     def get_author_info(self, author_name: str, paper_titles: list[str]) -> Optional[Dict[str, Any]]:

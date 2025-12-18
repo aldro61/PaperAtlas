@@ -5,6 +5,8 @@ Shared utility functions for PaperAtlas.
 
 from collections import defaultdict
 
+from config import HIGHLY_RELEVANT_THRESHOLD
+
 
 def parse_authors(author_string):
     """Parse author string into individual authors.
@@ -54,7 +56,7 @@ def analyze_authors(papers, first_last_only=True):
         List of author statistics dictionaries, each containing:
             - 'name': author name
             - 'paper_count': number of papers
-            - 'highly_relevant_count': papers with score >= 85
+            - 'highly_relevant_count': papers with score >= HIGHLY_RELEVANT_THRESHOLD
             - 'avg_score': average relevance score
             - 'max_score': maximum relevance score
             - 'total_relevant': sum of relevant/liked counts
@@ -125,8 +127,8 @@ def analyze_authors(papers, first_last_only=True):
         total_relevant = author_engagement[author]['relevant']
         total_reads = author_engagement[author]['reads']
 
-        # Count highly relevant papers (score >= 85 - strong alignment with user's interests)
-        highly_relevant_count = sum(1 for score in author_scores[author] if score >= 85)
+        # Count highly relevant papers (strong alignment with user's interests)
+        highly_relevant_count = sum(1 for score in author_scores[author] if score >= HIGHLY_RELEVANT_THRESHOLD)
 
         author_stats.append({
             'name': author,

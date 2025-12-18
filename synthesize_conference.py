@@ -9,32 +9,33 @@ import sys
 
 from openai import OpenAI
 
-# Default synthesis model (Gemini 2.5 Flash for consistency with paper enrichment)
-DEFAULT_SYNTHESIS_MODEL = os.environ.get("OPENROUTER_SYNTHESIS_MODEL", "google/gemini-2.5-flash")
+from config import (
+    DEFAULT_SYNTHESIS_MODEL,
+    OPENROUTER_BASE_URL,
+    OPENROUTER_HTTP_REFERER,
+    OPENROUTER_APP_TITLE,
+)
 
 
 class OpenRouterSynthesisAgent:
     """Generate conference synthesis via OpenRouter using Gemini 2.5 Flash."""
 
-    def __init__(self, api_key=None, model: str = DEFAULT_SYNTHESIS_MODEL, debug: bool = False):
+    def __init__(self, api_key=None, model: str = None, debug: bool = False):
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY.")
 
-        base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://github.com/aldro61/PaperAtlas")
-        app_title = os.environ.get("OPENROUTER_APP_TITLE", "PaperAtlas Synthesis")
         default_headers = {k: v for k, v in {
-            "HTTP-Referer": referer,
-            "X-Title": app_title,
+            "HTTP-Referer": OPENROUTER_HTTP_REFERER,
+            "X-Title": OPENROUTER_APP_TITLE,
         }.items() if v}
 
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=base_url,
+            base_url=OPENROUTER_BASE_URL,
             default_headers=default_headers,
         )
-        self.model = model
+        self.model = model or DEFAULT_SYNTHESIS_MODEL
         self.debug = debug
 
     def generate(self, prompt: str) -> str:
@@ -59,7 +60,7 @@ def generate_synthesis(papers, categories, model=None, debug=False, conference_n
     Args:
         papers: List of enriched papers
         categories: List of categories
-        model: Model to use for synthesis (optional, defaults to OPENROUTER_SYNTHESIS_MODEL or gemini-2.5-flash)
+        model: Model to use for synthesis (default from config)
         debug: Enable verbose logging for the synthesis call
         conference_name: Optional human-readable conference name (e.g., "NeurIPS 2025")
 

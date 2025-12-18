@@ -9,6 +9,7 @@ import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from config import HIGHLY_RELEVANT_THRESHOLD, AUTHOR_ENRICHMENT_WORKERS
 from utils import parse_authors, analyze_authors
 
 def get_author_info_with_claude(author_name, paper_titles):
@@ -122,15 +123,17 @@ def process_single_author(author, index, total):
 
     return author
 
-def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
-    """Enrich all authors with at least 1 highly relevant paper (score >= 85).
+def enrich_authors(csv_file, output_file, max_workers=None, first_last_only=True):
+    """Enrich all authors with at least 1 highly relevant paper.
 
     Args:
         csv_file: Path to CSV file with papers
         output_file: Path to output JSON file
-        max_workers: Number of parallel workers
+        max_workers: Number of parallel workers (default: from config)
         first_last_only: Only consider first, second, and last authors (default: True)
     """
+    if max_workers is None:
+        max_workers = AUTHOR_ENRICHMENT_WORKERS
 
     # Read papers
     with open(csv_file, 'r', encoding='utf-8') as f:
@@ -215,7 +218,7 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
         print(f"✓ Saved {len(already_enriched_authors)} authors to {output_file}")
         return
 
-    print(f"Enriching {len(authors_to_enrich)} new authors with at least 1 highly relevant paper (score >= 85)...")
+    print(f"Enriching {len(authors_to_enrich)} new authors with at least 1 highly relevant paper (score >= {HIGHLY_RELEVANT_THRESHOLD})...")
     print(f"Running {max_workers} parallel requests at a time.\n")
 
     newly_enriched_authors = []
@@ -276,12 +279,11 @@ def enrich_authors(csv_file, output_file, max_workers=30, first_last_only=True):
     for i, author in enumerate(all_authors[:10], 1):
         print(f"\n{i}. {author['name']}")
         print(f"   {author['affiliation']} - {author['role']}")
-        print(f"   {author['highly_relevant_count']} highly relevant papers (≥85), {author['paper_count']} total, avg: {author['avg_score']}")
+        print(f"   {author['highly_relevant_count']} highly relevant papers (≥{HIGHLY_RELEVANT_THRESHOLD}), {author['paper_count']} total, avg: {author['avg_score']}")
 
 if __name__ == "__main__":
     csv_file = "papers.csv"
     output_file = "enriched_authors.json"
 
-    # Enrich all authors with at least 1 highly relevant paper (score >= 85)
-    # Running 15 parallel workers (reduced from 30 since we're now fetching pages)
-    enrich_authors(csv_file, output_file, max_workers=15)
+    # Enrich all authors with at least 1 highly relevant paper
+    enrich_authors(csv_file, output_file)
