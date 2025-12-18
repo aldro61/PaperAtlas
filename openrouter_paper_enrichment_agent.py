@@ -15,6 +15,7 @@ from openai import OpenAI
 
 from config import (
     DEFAULT_PAPER_MODEL,
+    OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     OPENROUTER_HTTP_REFERER,
     OPENROUTER_APP_TITLE,
@@ -79,7 +80,7 @@ class OpenRouterPaperEnrichmentAgent:
             model: Model to use (default from config)
             debug: Enable debug output
         """
-        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        self.api_key = api_key or OPENROUTER_API_KEY
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable.")
 
