@@ -43,7 +43,7 @@ def markdown_to_html(text, paper_titles=None):
     # Convert links [text](url)
     text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', text)
 
-    # Convert paper references [Paper X] to interactive tooltips
+    # Convert paper references [Paper X] to interactive tooltips with PDF links
     if paper_titles:
         def replace_paper_ref(match):
             paper_num = match.group(1)
@@ -52,10 +52,11 @@ def markdown_to_html(text, paper_titles=None):
                 title = info['title'].replace('"', '&quot;').replace("'", '&#39;')
                 score = info.get('score', 'N/A')
                 categories = ', '.join(info.get('categories', []))
+                pdf_url = info.get('pdf_url', '')
 
-                tooltip_html = f"{title}<br><small style='color: #888;'>Score: {score} | {categories}</small>"
-
-                return f'<span class="paper-ref" data-tooltip="{tooltip_html}">[Paper {paper_num}]</span>'
+                # Store data attributes for JavaScript tooltip and PDF link
+                pdf_attr = f' data-pdf-url="{pdf_url}"' if pdf_url else ''
+                return f'<a class="paper-ref" href="{pdf_url}" target="_blank" data-paper-id="{paper_num}" data-title="{title}" data-score="{score}" data-categories="{categories}"{pdf_attr}>[Paper {paper_num}]</a>'
             return match.group(0)
 
         text = re.sub(r'\[Paper (\d+)\]', replace_paper_ref, text)
@@ -75,6 +76,41 @@ def markdown_to_html(text, paper_titles=None):
                 html_paragraphs.append(f'<p>{para}</p>')
 
     return '\n\n'.join(html_paragraphs)
+
+def generate_paper_reference_list(paper_titles):
+    """Generate a collapsible HTML reference list of all papers.
+
+    Args:
+        paper_titles: Dict mapping paper number (str) to {title, score, categories, pdf_url}
+
+    Returns:
+        HTML string with a collapsible reference list
+    """
+    if not paper_titles:
+        return ""
+
+    html = '''
+<details style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+<summary style="cursor: pointer; font-weight: bold; font-size: 1.1em; color: #1c3664;">📚 Paper Reference Index ({} papers)</summary>
+<div style="margin-top: 20px;">
+'''.format(len(paper_titles))
+
+    for paper_num in sorted(paper_titles.keys(), key=int):
+        info = paper_titles[paper_num]
+        title = info['title']
+        score = info.get('score', 'N/A')
+        categories = ', '.join(info.get('categories', []))
+        pdf_url = info.get('pdf_url', '')
+
+        pdf_link = f' <a href="{pdf_url}" target="_blank" style="color: #00c781; text-decoration: none;">📄 PDF</a>' if pdf_url else ''
+
+        html += f'''<p style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px;">
+<strong>[Paper {paper_num}]</strong> {title}
+<br><small style="color: #666;">Score: {score} | {categories}</small>{pdf_link}</p>
+'''
+
+    html += '</div>\n</details>'
+    return html
 
 def parse_authors(author_string):
     """Parse author string into individual authors."""
@@ -350,7 +386,8 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
         paper_titles[str(i)] = {
             'title': paper['title'],
             'score': paper.get('relevance_score', paper.get('score', 'N/A')),
-            'categories': paper.get('ai_categories', [])
+            'categories': paper.get('ai_categories', []),
+            'pdf_url': paper.get('pdf_url', '')
         }
     print(f"Built mapping for {len(paper_titles)} paper references")
 
@@ -373,12 +410,84 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     md_candidates.extend(sorted(glob.glob(os.path.join(base_dir, f"{stem}_synthesis*.md"))))
     md_candidates.append(os.path.join(base_dir, 'conference_synthesis.md'))
 
+    def upgrade_paper_refs(html_content):
+        """Upgrade old-format paper references to new format with clickable PDF links."""
+        import re
+
+        def make_paper_link(paper_id):
+            """Create a paper link for a given paper ID."""
+            if paper_id in paper_titles:
+                info = paper_titles[paper_id]
+                title = info['title'].replace('"', '&quot;').replace("'", '&#39;')
+                score = info.get('score', 'N/A')
+                categories = ', '.join(info.get('categories', []))
+                pdf_url = info.get('pdf_url', '')
+
+                pdf_attr = f' data-pdf-url="{pdf_url}"' if pdf_url else ''
+                return f'<a class="paper-ref" href="{pdf_url}" target="_blank" data-paper-id="{paper_id}" data-title="{title}" data-score="{score}" data-categories="{categories}"{pdf_attr}>[Paper {paper_id}]</a>'
+            return f'[Paper {paper_id}]'  # Return plain text if paper not found
+
+        def replace_old_ref(match):
+            paper_id = match.group(1)
+            return make_paper_link(paper_id)
+
+        def replace_multi_paper_ref(match):
+            """Handle [Paper X, Paper Y, Paper Z] patterns."""
+            content = match.group(1)
+            # Extract all paper numbers
+            paper_nums = re.findall(r'Paper (\d+)', content)
+            if not paper_nums:
+                return match.group(0)
+            # Create links for each paper
+            links = [make_paper_link(num) for num in paper_nums]
+            return '[' + ', '.join(links) + ']'
+
+        def replace_mixed_ref(match):
+            """Handle [Paper X, Y, Z] patterns where only first has 'Paper' prefix."""
+            content = match.group(1)
+            # Extract all numbers (first one after "Paper", rest are just numbers)
+            paper_nums = re.findall(r'\d+', content)
+            if not paper_nums:
+                return match.group(0)
+            # Create links for each paper
+            links = [make_paper_link(num) for num in paper_nums]
+            return '[' + ', '.join(links) + ']'
+
+        # First, handle old format: <span class="paper-ref" data-paper-id="X" data-tooltip="...">
+        pattern = r'<span class="paper-ref" data-paper-id="(\d+)" data-tooltip="([^"]*)">\[Paper \d+\]</span>'
+        html_content = re.sub(pattern, replace_old_ref, html_content)
+
+        # Handle multi-paper brackets like [Paper 11, Paper 18, Paper 30]
+        multi_pattern = r'\[(Paper \d+(?:,\s*Paper \d+)+)\]'
+        html_content = re.sub(multi_pattern, replace_multi_paper_ref, html_content)
+
+        # Handle mixed format like [Paper 2, 19, 24, 92] where only first has "Paper"
+        mixed_pattern = r'\[(Paper \d+(?:,\s*\d+)+)\]'
+        html_content = re.sub(mixed_pattern, replace_mixed_ref, html_content)
+
+        # Handle "Papers" plural format like [Papers 13, 111, 179, 308]
+        papers_plural_pattern = r'\[Papers (\d+(?:,\s*\d+)+)\]'
+        html_content = re.sub(papers_plural_pattern, replace_mixed_ref, html_content)
+
+        # Handle single [Paper X] in brackets
+        single_pattern = r'\[Paper (\d+)\]'
+        html_content = re.sub(single_pattern, lambda m: make_paper_link(m.group(1)), html_content)
+
+        # Finally, handle unbracketed "Paper X" references (but not already converted ones)
+        # Use negative lookbehind/lookahead to skip already converted refs
+        unbracketed_pattern = r'(?<!data-paper-id=")(?<!">)(?<!\[)Paper (\d+)(?!\])'
+        html_content = re.sub(unbracketed_pattern, lambda m: make_paper_link(m.group(1)), html_content)
+
+        return html_content
+
     def load_html(path):
         nonlocal synthesis_text
         try:
             with open(path, 'r', encoding='utf-8') as f:
-                synthesis_text = f.read()
-                print(f"✓ Loaded synthesis from {path} (with correct tooltips)")
+                content = f.read()
+                # Upgrade old-format paper refs to new format with PDF links
+                synthesis_text = upgrade_paper_refs(content)
+                print(f"✓ Loaded synthesis from {path}")
                 return True
         except Exception as e:
             print(f"⚠ Error loading HTML synthesis file {path}: {e}")
@@ -441,6 +550,12 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     page_title = f"{conference_title} - PaperAtlas"
 
     synthesis_block = synthesis_text if synthesis_text else "<p style='color: #888; font-style: italic;'>No synthesis available. Enriched papers are required to generate a synthesis.</p>"
+
+    # Generate deterministic paper reference list
+    if paper_titles:
+        reference_list_html = generate_paper_reference_list(paper_titles)
+        synthesis_block += reference_list_html
+
     synthesis_block = f"<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">{synthesis_block}</div>"
 
     # Generate HTML with embedded data (placeholders substituted after definition)
@@ -1135,66 +1250,73 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
             }
         }
 
-        /* Paper reference tooltips */
+        /* Paper reference links with tooltips */
         .paper-ref {
             color: #00c781;
             font-weight: 600;
-            cursor: help;
+            cursor: pointer;
             position: relative;
             text-decoration: underline dotted;
             transition: all 0.2s ease;
+        }
+
+        a.paper-ref {
+            cursor: pointer;
+        }
+
+        a.paper-ref[href=""] {
+            pointer-events: none;
+            cursor: help;
         }
 
         .paper-ref:hover {
             color: #1c3664;
         }
 
-        .paper-ref::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
+        .paper-ref-missing {
+            color: #ff6b6b;
+        }
+
+        /* JavaScript-based tooltip container */
+        .paper-tooltip {
+            position: fixed;
             background: rgba(0, 0, 0, 0.95);
             color: white;
             padding: 12px 16px;
             border-radius: 8px;
-            white-space: normal;
-            width: 320px;
+            max-width: 350px;
             font-size: 0.85em;
             font-weight: normal;
             line-height: 1.5;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            z-index: 10000;
             pointer-events: none;
             text-align: left;
-        }
-
-        .paper-ref:hover::after {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        /* Tooltip arrow */
-        .paper-ref::before {
-            content: '';
-            position: absolute;
-            bottom: 115%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: rgba(0, 0, 0, 0.95);
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
         }
 
-        .paper-ref:hover::before {
+        .paper-tooltip.visible {
             opacity: 1;
             visibility: visible;
+        }
+
+        .paper-tooltip .tooltip-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .paper-tooltip .tooltip-meta {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        .paper-tooltip .tooltip-pdf {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #00c781;
         }
     </style>
 </head>
@@ -1683,7 +1805,87 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                     closePaperModal();
                 }
             });
+
+            // Initialize paper reference tooltips
+            initPaperTooltips();
         });
+
+        // Paper reference tooltip system
+        function initPaperTooltips() {
+            // Create tooltip element
+            const tooltip = document.createElement('div');
+            tooltip.className = 'paper-tooltip';
+            tooltip.id = 'paperTooltip';
+            document.body.appendChild(tooltip);
+
+            // Add event listeners to all paper references
+            document.querySelectorAll('.paper-ref').forEach(ref => {
+                ref.addEventListener('mouseenter', showPaperTooltip);
+                ref.addEventListener('mouseleave', hidePaperTooltip);
+                ref.addEventListener('mousemove', movePaperTooltip);
+            });
+        }
+
+        function showPaperTooltip(e) {
+            const ref = e.target;
+            const tooltip = document.getElementById('paperTooltip');
+
+            const title = ref.getAttribute('data-title');
+            const score = ref.getAttribute('data-score');
+            const categories = ref.getAttribute('data-categories');
+            const pdfUrl = ref.getAttribute('data-pdf-url') || ref.getAttribute('href');
+            const paperId = ref.getAttribute('data-paper-id');
+
+            if (!title) {
+                // Missing paper reference
+                tooltip.innerHTML = `<div class="tooltip-title">⚠️ Paper ${paperId} not found in index</div>`;
+            } else {
+                let content = `<div class="tooltip-title">${title}</div>`;
+                content += `<div class="tooltip-meta">Score: ${score}`;
+                if (categories) {
+                    content += ` | ${categories}`;
+                }
+                content += '</div>';
+                if (pdfUrl && pdfUrl !== '') {
+                    content += '<div class="tooltip-pdf">📄 Click to open PDF</div>';
+                }
+                tooltip.innerHTML = content;
+            }
+
+            // Position tooltip near mouse
+            positionTooltip(e, tooltip);
+            tooltip.classList.add('visible');
+        }
+
+        function hidePaperTooltip() {
+            const tooltip = document.getElementById('paperTooltip');
+            tooltip.classList.remove('visible');
+        }
+
+        function movePaperTooltip(e) {
+            const tooltip = document.getElementById('paperTooltip');
+            if (tooltip.classList.contains('visible')) {
+                positionTooltip(e, tooltip);
+            }
+        }
+
+        function positionTooltip(e, tooltip) {
+            const padding = 15;
+            let x = e.clientX + padding;
+            let y = e.clientY - tooltip.offsetHeight - padding;
+
+            // Keep tooltip within viewport
+            const rect = tooltip.getBoundingClientRect();
+            if (x + rect.width > window.innerWidth) {
+                x = e.clientX - rect.width - padding;
+            }
+            if (y < 0) {
+                y = e.clientY + padding;
+            }
+
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
 
         function switchTab(tabName) {
             // Hide all tabs
