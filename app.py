@@ -33,8 +33,17 @@ from openrouter_author_enrichment_agent import OpenRouterAuthorEnrichmentAgent
 from openrouter_paper_enrichment_agent import OpenRouterPaperEnrichmentAgent
 from generate_website import generate_website
 from synthesize_conference import generate_synthesis
+from config import (
+    HIGHLY_RELEVANT_THRESHOLD,
+    AUTHOR_ENRICHMENT_WORKERS,
+    PAPER_ENRICHMENT_WORKERS,
+    SCHOLAR_INBOX_API_BASE,
+    DEFAULT_AUTHOR_MODEL,
+    DEFAULT_PAPER_MODEL,
+    DEFAULT_SYNTHESIS_MODEL,
+)
 
-API_BASE = "https://api.scholar-inbox.com/api"
+API_BASE = SCHOLAR_INBOX_API_BASE
 
 app = Flask(__name__)
 
@@ -577,7 +586,7 @@ HTML_TEMPLATE = '''
                         <label for="authorModel">👥 Author Enrichment</label>
                         <div class="model-combo">
                             <input type="text" id="authorModel" class="model-input"
-                                   value="openai/gpt-5-mini" placeholder="Type a model id...">
+                                   value="''' + DEFAULT_AUTHOR_MODEL + '''" placeholder="Type a model id...">
                             <button type="button" class="combo-toggle" aria-label="Select author model" data-list="authorModelOptions">▾</button>
                             <div class="combo-list" id="authorModelOptions">
                                 <button type="button" class="combo-option" data-value="openai/gpt-5-mini">GPT-5 Mini (default)</button>
@@ -595,7 +604,7 @@ HTML_TEMPLATE = '''
                         <label for="paperModel">🔬 Paper Enrichment</label>
                         <div class="model-combo">
                             <input type="text" id="paperModel" class="model-input"
-                                   value="openai/gpt-5-mini" placeholder="Type a model id...">
+                                   value="''' + DEFAULT_PAPER_MODEL + '''" placeholder="Type a model id...">
                             <button type="button" class="combo-toggle" aria-label="Select paper model" data-list="paperModelOptions">▾</button>
                             <div class="combo-list" id="paperModelOptions">
                                 <button type="button" class="combo-option" data-value="openai/gpt-5-mini">GPT-5 Mini (default)</button>
@@ -613,7 +622,7 @@ HTML_TEMPLATE = '''
                         <label for="synthesisModel">🧠 Synthesis</label>
                         <div class="model-combo">
                             <input type="text" id="synthesisModel" class="model-input"
-                                   value="openai/gpt-5" placeholder="Type a model id...">
+                                   value="''' + DEFAULT_SYNTHESIS_MODEL + '''" placeholder="Type a model id...">
                             <button type="button" class="combo-toggle" aria-label="Select synthesis model" data-list="synthesisModelOptions">▾</button>
                             <div class="combo-list" id="synthesisModelOptions">
                                 <button type="button" class="combo-option" data-value="openai/gpt-5-mini">GPT-5 Mini</button>
@@ -1416,7 +1425,7 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
 
         session_ids = {p.get('session_id') or p.get('session_name') for p in cleaned_papers if p.get('session_id') or p.get('session_name')}
         scores = [p['relevance_score'] for p in cleaned_papers if isinstance(p.get('relevance_score'), (int, float))]
-        high_relevance = sum(1 for s in scores if s >= 85)
+        high_relevance = sum(1 for s in scores if s >= HIGHLY_RELEVANT_THRESHOLD)
         session.stats = {
             'total_papers': len(cleaned_papers),
             'total_sessions': len(session_ids),
@@ -1581,7 +1590,7 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
 
                 # Calculate stats
                 scores = [p['relevance_score'] for p in cleaned_papers if p['relevance_score'] and p['relevance_score'] > 0]
-                high_relevance = sum(1 for s in scores if s >= 85)
+                high_relevance = sum(1 for s in scores if s >= HIGHLY_RELEVANT_THRESHOLD)
 
                 session.stats = {
                     'total_papers': len(cleaned_papers),
@@ -1636,7 +1645,7 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
             # Analyze authors from cleaned papers
             author_stats = analyze_authors(cleaned_papers, first_last_only=True)
 
-            # Filter to authors with highly relevant papers (score >= 85)
+            # Filter to authors with highly relevant papers
             key_authors = [a for a in author_stats if a['highly_relevant_count'] > 0]
 
             session.log(f'Found {len(key_authors)} key authors with highly relevant papers')
@@ -1709,10 +1718,9 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                         author['profile_url'] = None
                         return author, False
 
-                # Process authors in parallel with 30 workers (OpenRouter handles web search server-side)
-                MAX_WORKERS = 30
-                session.log(f'Processing {len(authors_to_enrich)} authors with {MAX_WORKERS} parallel workers')
-                with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                # Process authors in parallel (OpenRouter handles web search server-side)
+                session.log(f'Processing {len(authors_to_enrich)} authors with {AUTHOR_ENRICHMENT_WORKERS} parallel workers')
+                with ThreadPoolExecutor(max_workers=AUTHOR_ENRICHMENT_WORKERS) as executor:
                     future_to_author = {executor.submit(enrich_single_author, author): author for author in authors_to_enrich}
 
                     for future in as_completed(future_to_author):
@@ -1881,8 +1889,7 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                         return paper, False
 
                 # Process papers in parallel (fewer workers than authors since PDF fetching is slower)
-                MAX_WORKERS = 10
-                session.log(f'Processing {len(papers_to_enrich)} papers with {MAX_WORKERS} parallel workers')
+                session.log(f'Processing {len(papers_to_enrich)} papers with {PAPER_ENRICHMENT_WORKERS} parallel workers')
 
                 def save_progress():
                     """Save current progress to file."""
@@ -1894,7 +1901,7 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                     with open(papers_enrichment_file, 'w', encoding='utf-8') as f:
                         json.dump(output_data, f, indent=2, ensure_ascii=False)
 
-                with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                with ThreadPoolExecutor(max_workers=PAPER_ENRICHMENT_WORKERS) as executor:
                     future_to_paper = {
                         executor.submit(enrich_single_paper, paper, i + 1, len(papers_to_enrich)): paper
                         for i, paper in enumerate(papers_to_enrich)

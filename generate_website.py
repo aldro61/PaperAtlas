@@ -12,6 +12,7 @@ import sys
 
 # Import synthesis generation and shared utilities
 sys.path.append(os.path.dirname(__file__))
+from config import HIGHLY_RELEVANT_THRESHOLD
 try:
     from synthesize_conference import generate_synthesis
 except ImportError:
@@ -1305,7 +1306,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
                     <h2>👥 Key Authors to Meet</h2>
                 </div>
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 0.95em; color: #555;">
-                    <strong>Ranking by Research Alignment:</strong> Authors are ranked by their number of <strong>highly relevant papers (score ≥ 85)</strong>.
+                    <strong>Ranking by Research Alignment:</strong> Authors are ranked by their number of <strong>highly relevant papers (score ≥ ''' + str(HIGHLY_RELEVANT_THRESHOLD) + ''')</strong>.
                     Showing <strong>first, second, and last authors</strong> (primary contributors, key collaborators, and senior researchers) with at least <strong>1 highly relevant paper</strong> — these are the must-meet researchers whose work is most aligned with your interests.
                     <span style="opacity: 0.8;">(Focusing on these key positions helps prioritize important contributors)</span>
                 </div>
@@ -1347,6 +1348,9 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
     </div>
 
     <script>
+        // Configuration
+        const HIGHLY_RELEVANT_THRESHOLD = ''' + str(HIGHLY_RELEVANT_THRESHOLD) + ''';
+
         // Embedded paper data
         const papers = ''' + json.dumps(papers, ensure_ascii=False) + ''';
 
@@ -1889,7 +1893,7 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
         function displayAuthors(page = 1) {
             currentAuthorsPage = page;
 
-            // Filter to authors with at least 1 highly relevant paper (score >= 85)
+            // Filter to authors with at least 1 highly relevant paper
             let sortedAuthors = authors
                 .filter(a => a.highly_relevant_count >= 1)
                 .map(a => ({
