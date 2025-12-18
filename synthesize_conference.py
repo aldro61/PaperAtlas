@@ -5,6 +5,7 @@ Generate a high-level critical summary of the conference research.
 
 import json
 import os
+import re
 import sys
 
 from openai import OpenAI
@@ -156,8 +157,6 @@ Focus on synthesizing insights across papers rather than listing individual pape
 
 def convert_synthesis_to_html(text, paper_index):
     """Convert markdown synthesis with paper references to HTML with interactive tooltips."""
-    import re
-
     if not text:
         return ""
 

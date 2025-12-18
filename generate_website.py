@@ -27,8 +27,6 @@ def markdown_to_html(text, paper_titles=None):
         text: Markdown text to convert
         paper_titles: Optional dict mapping paper number to {title, score, categories}
     """
-    import re
-
     if not text:
         return ""
 
@@ -321,8 +319,6 @@ def generate_website(csv_file, output_file, enriched_authors_file=None, enriched
 
     def upgrade_paper_refs(html_content):
         """Upgrade old-format paper references to new format with clickable PDF links."""
-        import re
-
         def make_paper_link(paper_id):
             """Create a paper link for a given paper ID."""
             if paper_id in paper_titles:

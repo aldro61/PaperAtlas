@@ -6,6 +6,7 @@ Uses OpenRouter's OpenAI-compatible API with the `web_search` tool.
 
 import json
 import os
+import re
 from typing import Optional, Dict, Any
 
 from openai import OpenAI, APITimeoutError
@@ -127,7 +128,6 @@ If you cannot find a photo or profile link, set those fields to null. Only use "
                 elif '```' in final_response:
                     final_response = final_response.split('```')[1].split('```')[0].strip()
 
-                import re
                 json_match = re.search(r'\{[^}]+\}', final_response, re.DOTALL)
                 if json_match:
                     final_response = json_match.group(0)

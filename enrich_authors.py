@@ -6,6 +6,7 @@ Use Claude CLI to enrich top authors with affiliation and role information.
 import csv
 import json
 import os
+import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -82,7 +83,6 @@ If you cannot find a photo or profile link, set those fields to null. If you can
             response_text = response_text.split('```')[1].split('```')[0].strip()
 
         # Try to find JSON in the response
-        import re
         json_match = re.search(r'\{[^}]+\}', response_text)
         if json_match:
             response_text = json_match.group(0)
