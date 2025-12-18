@@ -1382,6 +1382,7 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
     cleaned_papers = None
     sessions_list = []
     existing_enriched = {}  # Will be populated if existing enriched authors are found
+    previously_attempted = {}  # Authors previously attempted but returned Unknown values
     conf_title = (conference_name.split(' - ')[0].strip() if conference_name else None) or conference
 
     def ensure_step(name):
@@ -1426,12 +1427,20 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
 
         # Load existing enriched authors if available (for partial reuse)
         existing_enriched = {}
+        previously_attempted = {}  # Authors that were attempted but returned Unknown
         if os.path.exists(authors_file):
             try:
                 with open(authors_file, 'r', encoding='utf-8') as f:
                     existing_authors = json.load(f)
-                # Create lookup by name - only consider fully enriched authors
+                # Create lookup by name - track both successful and attempted enrichments
                 for author in existing_authors:
+                    # Check if author has all required fields (was previously processed)
+                    has_required_fields = all(
+                        field in author for field in ['affiliation', 'role', 'photo_url', 'profile_url']
+                    )
+                    if not has_required_fields:
+                        continue  # Skip incomplete entries
+
                     has_info = (
                         author.get('affiliation') and
                         author.get('affiliation') != 'Unknown' and
@@ -1440,7 +1449,12 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                     )
                     if has_info:
                         existing_enriched[author['name']] = author
+                    else:
+                        # Author was previously attempted but returned Unknown values
+                        previously_attempted[author['name']] = author
                 session.log(f'Found {len(existing_enriched)} fully enriched authors from previous run')
+                if previously_attempted:
+                    session.log(f'Found {len(previously_attempted)} authors previously attempted but unresolved (will skip)')
             except Exception as reuse_err:
                 session.log(f'Could not load existing authors file: {reuse_err}', 'warning')
         else:
@@ -1590,6 +1604,13 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                 with open(authors_file, 'r', encoding='utf-8') as f:
                     existing_authors = json.load(f)
                 for author in existing_authors:
+                    # Check if author has all required fields (was previously processed)
+                    has_required_fields = all(
+                        field in author for field in ['affiliation', 'role', 'photo_url', 'profile_url']
+                    )
+                    if not has_required_fields:
+                        continue  # Skip incomplete entries
+
                     has_info = (
                         author.get('affiliation') and
                         author.get('affiliation') != 'Unknown' and
@@ -1598,7 +1619,12 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                     )
                     if has_info:
                         existing_enriched[author['name']] = author
+                    else:
+                        # Author was previously attempted but returned Unknown values
+                        previously_attempted[author['name']] = author
                 session.log(f'Found {len(existing_enriched)} fully enriched authors from previous run')
+                if previously_attempted:
+                    session.log(f'Found {len(previously_attempted)} authors previously attempted but unresolved (will skip)')
             except Exception as load_err:
                 session.log(f'Could not load existing authors file: {load_err}', 'warning')
 
@@ -1617,31 +1643,44 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
 
             # Separate already-enriched authors from those needing enrichment
             already_enriched_authors = []
+            skipped_not_found_authors = []  # Authors previously attempted but returned Unknown
             authors_to_enrich = []
 
             for author in key_authors:
                 if author['name'] in existing_enriched:
-                    # Use existing enrichment data
+                    # Use existing enrichment data (successful enrichment)
                     existing = existing_enriched[author['name']]
                     author['affiliation'] = existing.get('affiliation', 'Unknown')
                     author['role'] = existing.get('role', 'Unknown')
                     author['photo_url'] = existing.get('photo_url')
                     author['profile_url'] = existing.get('profile_url')
                     already_enriched_authors.append(author)
+                elif author['name'] in previously_attempted:
+                    # Author was previously attempted but returned Unknown values - skip
+                    existing = previously_attempted[author['name']]
+                    author['affiliation'] = existing.get('affiliation', 'Unknown')
+                    author['role'] = existing.get('role', 'Unknown')
+                    author['photo_url'] = existing.get('photo_url')
+                    author['profile_url'] = existing.get('profile_url')
+                    skipped_not_found_authors.append(author)
                 else:
                     authors_to_enrich.append(author)
 
             session.log(f'✓ {len(already_enriched_authors)} authors already enriched (reusing)')
+            if skipped_not_found_authors:
+                session.log(f'⏭ {len(skipped_not_found_authors)} authors previously attempted but unresolved (skipping)')
             session.log(f'→ {len(authors_to_enrich)} authors need enrichment')
 
             # If all authors are already enriched, skip to saving
             if len(authors_to_enrich) == 0:
                 session.log('All key authors already enriched!', 'success')
+                # Save both successful and not-found authors to preserve state
+                all_processed_authors = already_enriched_authors + skipped_not_found_authors
                 with open(authors_file, 'w', encoding='utf-8') as f:
-                    json.dump(already_enriched_authors, f, indent=2, ensure_ascii=False)
-                session.log(f'Saved {len(already_enriched_authors)} enriched authors to {authors_file}', 'success')
+                    json.dump(all_processed_authors, f, indent=2, ensure_ascii=False)
+                session.log(f'Saved {len(all_processed_authors)} enriched authors to {authors_file}', 'success')
                 ensure_step('authors')
-                session.stats['enriched_authors'] = len(already_enriched_authors)
+                session.stats['enriched_authors'] = len(all_processed_authors)
             else:
                 # Enrich missing authors in parallel using ThreadPoolExecutor
                 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1696,14 +1735,14 @@ async def extract_papers(session, login_link, conference, conference_name, outpu
                             with lock:
                                 session.log(f'✗ [{completed_count}/{len(authors_to_enrich)}] {original_author["name"]} - Error: {str(e)}')
 
-                # Combine already-enriched with newly-enriched authors
-                all_enriched_authors = already_enriched_authors + newly_enriched_authors
+                # Combine already-enriched, skipped (not-found), and newly-enriched authors
+                all_enriched_authors = already_enriched_authors + skipped_not_found_authors + newly_enriched_authors
 
                 # Save enriched authors
                 with open(authors_file, 'w', encoding='utf-8') as f:
                     json.dump(all_enriched_authors, f, indent=2, ensure_ascii=False)
 
-                session.log(f'Saved {len(all_enriched_authors)} enriched authors to {authors_file} ({len(already_enriched_authors)} reused, {len(newly_enriched_authors)} new)', 'success')
+                session.log(f'Saved {len(all_enriched_authors)} enriched authors to {authors_file} ({len(already_enriched_authors)} reused, {len(skipped_not_found_authors)} skipped, {len(newly_enriched_authors)} new)', 'success')
                 ensure_step('authors')
                 session.stats['enriched_authors'] = len(all_enriched_authors)
 
