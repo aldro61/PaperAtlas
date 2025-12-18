@@ -41,6 +41,7 @@ from config import (
     DEFAULT_AUTHOR_MODEL,
     DEFAULT_PAPER_MODEL,
     DEFAULT_SYNTHESIS_MODEL,
+    OPENROUTER_API_KEY,
 )
 
 API_BASE = SCHOLAR_INBOX_API_BASE
@@ -1280,7 +1281,7 @@ def check_dependencies():
             reuse_timestamp = datetime.fromtimestamp(oldest).isoformat()
 
     # Check OpenRouter API key (reusing field name for UI)
-    openrouter_api = os.environ.get("OPENROUTER_API_KEY") is not None
+    openrouter_api = OPENROUTER_API_KEY is not None
 
     # Check Playwright
     try:

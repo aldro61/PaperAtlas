@@ -26,6 +26,7 @@ RE_UNBRACKETED_PAPER = re.compile(r'(?<!data-paper-id=")(?<!">)(?<!\[)Paper (\d+
 
 from config import (
     DEFAULT_SYNTHESIS_MODEL,
+    OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     OPENROUTER_HTTP_REFERER,
     OPENROUTER_APP_TITLE,
@@ -36,7 +37,7 @@ class OpenRouterSynthesisAgent:
     """Generate conference synthesis via OpenRouter using Gemini 2.5 Flash."""
 
     def __init__(self, api_key=None, model: str = None, debug: bool = False):
-        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        self.api_key = api_key or OPENROUTER_API_KEY
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY.")
 
