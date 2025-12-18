@@ -10,12 +10,14 @@ import os
 import re
 import sys
 
-# Import synthesis generation
+# Import synthesis generation and shared utilities
 sys.path.append(os.path.dirname(__file__))
 try:
     from synthesize_conference import generate_synthesis
 except ImportError:
     generate_synthesis = None
+
+from utils import parse_authors, analyze_authors
 
 def markdown_to_html(text, paper_titles=None):
     """Convert basic markdown to HTML with interactive paper references.
@@ -111,100 +113,6 @@ def generate_paper_reference_list(paper_titles):
 
     html += '</div>\n</details>'
     return html
-
-def parse_authors(author_string):
-    """Parse author string into individual authors."""
-    if not author_string:
-        return []
-
-    # Split by comma
-    authors = [a.strip() for a in author_string.split(',')]
-
-    # Clean up common patterns
-    cleaned = []
-    for author in authors:
-        # Remove "..." or "et al" type endings
-        if author in ['...', 'et al', 'et al.']:
-            continue
-        # Remove trailing dots
-        author = author.rstrip('.')
-        if author:
-            cleaned.append(author)
-
-    return cleaned
-
-def analyze_authors(papers, first_last_only=True):
-    """Analyze authors and return statistics.
-
-    Args:
-        papers: List of papers to analyze
-        first_last_only: If True, only consider first, second, and last authors (default: True)
-    """
-    from collections import defaultdict
-
-    author_papers = defaultdict(list)
-    author_scores = defaultdict(list)
-    author_engagement = defaultdict(lambda: {'relevant': 0, 'reads': 0})
-
-    for paper in papers:
-        authors = parse_authors(paper['authors'])
-        score_raw = paper.get('relevance_score', paper.get('score', 0))
-        try:
-            score = float(score_raw)
-        except (TypeError, ValueError):
-            score = 0.0
-
-        relevant = 0
-        reads = 0
-
-        # Filter to first, second, and last authors if enabled
-        if first_last_only and len(authors) > 3:
-            # Keep first, second, and last author
-            authors = [authors[0], authors[1], authors[-1]]
-        elif first_last_only and len(authors) == 3:
-            # All three are important
-            pass
-        elif first_last_only and len(authors) == 2:
-            # Both authors are important
-            pass
-        # If only 1 author or first_last_only=False, keep all
-
-        for author in authors:
-            author_papers[author].append({
-                'title': paper['title'],
-                'score': score,
-                'session': paper.get('session_type', paper.get('session_name', '')),
-                'pdf_url': paper['pdf_url'],
-                'relevant': relevant,
-                'reads': reads
-            })
-            author_scores[author].append(score)
-            author_engagement[author]['relevant'] += relevant
-            author_engagement[author]['reads'] += reads
-
-    # Calculate statistics
-    author_stats = []
-    for author, papers_list in author_papers.items():
-        avg_score = sum(author_scores[author]) / len(author_scores[author])
-        max_score = max(author_scores[author])
-        total_relevant = author_engagement[author]['relevant']
-        total_reads = author_engagement[author]['reads']
-
-        # Count highly relevant papers (score >= 85 - strong alignment with your interests)
-        highly_relevant_count = sum(1 for score in author_scores[author] if score >= 85)
-
-        author_stats.append({
-            'name': author,
-            'paper_count': len(papers_list),
-            'highly_relevant_count': highly_relevant_count,
-            'avg_score': round(avg_score, 1),
-            'max_score': max_score,
-            'total_relevant': total_relevant,
-            'total_reads': total_reads,
-            'papers': papers_list
-        })
-
-    return author_stats
 
 def generate_website(csv_file, output_file, enriched_authors_file=None, enriched_papers_file=None, conference_title=None, synthesis_file=None):
     """Generate HTML website with embedded data.
