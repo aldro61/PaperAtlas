@@ -25,7 +25,7 @@ OPENROUTER_API_KEY="your-key" ./run.sh
 
 - Python 3.9+
 - `OPENROUTER_API_KEY` (get one at [OpenRouter](https://openrouter.ai))
-- Scholar Inbox account with scored conferences
+- [Scholar Inbox](https://scholar-inbox.com/) account (with trained recommender system)
 
 ## License
 
