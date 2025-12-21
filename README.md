@@ -4,7 +4,7 @@
 
 A single-step web app to pull your Scholar Inbox preferences, annotate all papers and authors of interest from any conference with LLMs, generate a synthesis, and produce a summary website.
 
-https://github.com/user-attachments/assets/3f7a0b74-1a21-4fdd-a361-3ea0073d6e2d
+https://github.com/user-attachments/assets/66e91c44-b721-427b-ba05-bd3af8befce2
 
 ## Quick Start
 
